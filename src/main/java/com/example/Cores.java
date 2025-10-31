@@ -1,8 +1,20 @@
 package com.example;
 
-public enum cores {
-			new Color vermelho = rgba(222, 73, 73),
-			new Color azul = rgba(36, 118, 224),
-			new Color amarelo = rgba(235, 201, 35),
-			new Color verde = rgba(15, 168, 36)
+import java.awt.Color;
+
+public enum Cores {
+    VERMELHO(new Color(222, 73, 73)),
+    AZUL(new Color(36, 118, 224)),
+    AMARELO(new Color(235, 201, 35)),
+    VERDE(new Color(15, 168, 36));
+
+    private final Color color;
+
+    Cores(Color color) {
+        this.color = color;
+    }
+
+    public Color getColor() {
+        return Cores;
+    }
 }
