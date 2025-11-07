@@ -6,7 +6,7 @@ import java.nio.file.Paths;
 
 import com.google.gson.Gson;
 
-public class Questao2 {
+public class Pergunta {
 
     private String questao;
     private String[] opcoes;
@@ -49,11 +49,11 @@ public class Questao2 {
         this.correct = correct;
     }
 
-    public static Questao2 readFromFile(String caminhoArquivo) {
+    public static Pergunta readFromFile(String caminhoArquivo) {
         try {
             String content = new String(Files.readAllBytes(Paths.get(caminhoArquivo)));
             Gson gson = new Gson();
-            return gson.fromJson(content, Questao2.class);
+            return gson.fromJson(content, Pergunta.class);
         } catch (IOException e) {
             e.printStackTrace();
             return null;
