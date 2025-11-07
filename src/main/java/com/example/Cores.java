@@ -15,6 +15,6 @@ public enum Cores {
     }
 
     public Color getColor() {
-        return Cores;
-    }
+        return color;
+    }
 }

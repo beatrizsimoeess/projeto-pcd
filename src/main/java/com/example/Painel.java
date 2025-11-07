@@ -1,3 +1,5 @@
+package com.example;
+
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -14,8 +16,8 @@ public class Painel {
 	private JFrame frame;
 	private static final int LARGURA = 600;
 	private static final int ALTURA = 400;
-    private final Color roxo = rgba(91, 72, 181)
-    private final Color cinza = rgba(237,237,237)
+    private final Color roxo = new Color (91, 72, 181);
+    private final Color cinza = new Color(237,237,237);
 
 	public Painel() {
 		frame = new JFrame("IsKahoot");
@@ -120,9 +122,11 @@ public class Painel {
 		optionsPainel.setBackground(new Color(237, 237, 237));
 		
 		
+		Cores[] cores = Cores.values();
+
 		for (int i= 0; i < 4; i++) {
 			JButton botao = new JButton();
-			botao.setBackground(cores[i]);
+			botao.setBackground(cores[i].getColor());
 			botao.setForeground(Color.WHITE);
 			botao.setFont(new Font("SansSerif", Font.BOLD, 16));
 			optionsPainel.add(botao);
@@ -137,9 +141,9 @@ public class Painel {
 	// pequeno teste
 	public static void main(String[] args) {
 		Painel p = new Painel();
-		p.uploadHomePage();
+		//p.uploadHomePage();
 		//p.uploadQuestion("Qual é o meu nome?");
-		//p.uploadQuestionOptions("Qual é o meu nome?");
+		p.uploadQuestionOptions("Qual é o meu nome?");
 		// p.open();
 	}
 }
