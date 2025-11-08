@@ -5,11 +5,14 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.Toolkit;
+import java.util.concurrent.CountDownLatch;
+
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
 public class Painel {
@@ -129,15 +132,44 @@ public class Painel {
 	public void uploadQuestion(String question) {
 		clearFrame();
 		frame.getContentPane().setBackground(cinza);
-		frame.setLayout(new GridLayout(1, 1));
+		frame.setLayout(new GridLayout(2, 1));
 		
 		JLabel pergunta = new JLabel( question, JLabel.CENTER);
 		pergunta.setFont(new Font("SansSerif", Font.BOLD, 28));
 		pergunta.setForeground(Color.BLACK);
 		frame.add(pergunta);
 		
+		JLabel countdown = new JLabel("15", JLabel.CENTER);
+		countdown.setFont(new Font("SansSerif", Font.BOLD, 24));
+		countdown.setForeground(Color.DARK_GRAY);
+		frame.add(countdown);
+
 		frame.revalidate();
 		frame.repaint();
+
+		CountDownLatch latch = new CountDownLatch(1);
+
+		final int[] tempoRestante = {10};
+
+		javax.swing.Timer timer = new javax.swing.Timer(1000, e -> {
+		tempoRestante[0]--;
+		countdown.setText(String.valueOf(tempoRestante[0]));
+
+		if (tempoRestante[0] <= 0) {
+			((javax.swing.Timer) e.getSource()).stop();
+			latch.countDown(); 
+		}
+	});
+	timer.start();
+
+	new Thread(() -> {
+		try {
+			latch.await();
+			SwingUtilities.invokeLater(() -> uploadQuestionOptions("Qual é o meu nome?"));
+		} catch (InterruptedException ex) {
+			Thread.currentThread().interrupt();
+		}
+	}).start();
 	}
 	
 	public void uploadQuestionOptions(String question) {
