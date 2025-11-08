@@ -123,7 +123,6 @@ public class Painel {
 		
 		
 		Cores[] cores = Cores.values();
-
 		for (int i= 0; i < 4; i++) {
 			JButton botao = new JButton();
 			botao.setBackground(cores[i].getColor());
