@@ -139,7 +139,7 @@ public class Painel {
 		pergunta.setForeground(Color.BLACK);
 		frame.add(pergunta);
 		
-		JLabel countdown = new JLabel("15", JLabel.CENTER);
+		JLabel countdown = new JLabel("5", JLabel.CENTER);
 		countdown.setFont(new Font("SansSerif", Font.BOLD, 24));
 		countdown.setForeground(Color.DARK_GRAY);
 		frame.add(countdown);
@@ -149,7 +149,7 @@ public class Painel {
 
 		CountDownLatch latch = new CountDownLatch(1);
 
-		final int[] tempoRestante = {10};
+		final int[] tempoRestante = {5};
 
 		javax.swing.Timer timer = new javax.swing.Timer(1000, e -> {
 		tempoRestante[0]--;
