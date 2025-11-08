@@ -69,7 +69,26 @@ public class Painel {
 		enter.setFont(new Font("SansSerif", Font.BOLD, 18));
 
         enter.addActionListener(e -> {
-		uploadQuestion("Qual é o teu nome?"); // substitui por outra função se quiseres
+			String game = campoGame.getText().trim();
+			String team = campoTeam.getText().trim();
+			String player = campoPlayer.getText().trim();
+
+			boolean vazio = game.isEmpty() || team.isEmpty() || player.isEmpty();
+			boolean placeholder = 
+			game.equals("Game PIN") || 
+			team.equals("Team PIN") || 
+			player.equals("Player ID");
+
+		if (vazio || placeholder) {
+			javax.swing.JOptionPane.showMessageDialog(
+				frame,
+				"É necessário preencher todos os campos para proceder.",
+				"Atenção",
+				javax.swing.JOptionPane.WARNING_MESSAGE
+			);
+		} else {
+		uploadQuestion("Qual é o teu nome?");
+		}
 	    });
 
 		caixa.add(campoGame);
