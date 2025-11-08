@@ -90,7 +90,7 @@ public class Painel {
 				javax.swing.JOptionPane.WARNING_MESSAGE
 			);
 		} else {
-		uploadQuestion("Qual é o teu nome?");
+		uploadQuestion("Qual é o meu nome?");
 		}
 	    });
 
@@ -135,7 +135,7 @@ public class Painel {
 		frame.setLayout(new GridLayout(2, 1));
 		
 		JLabel pergunta = new JLabel( question, JLabel.CENTER);
-		pergunta.setFont(new Font("SansSerif", Font.BOLD, 28));
+		pergunta.setFont(new Font("SansSerif", Font.BOLD, 24));
 		pergunta.setForeground(Color.BLACK);
 		frame.add(pergunta);
 		
