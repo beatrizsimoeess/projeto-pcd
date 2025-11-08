@@ -56,33 +56,21 @@ public class Painel {
 		JPanel caixa = new JPanel();
 		caixa.setBackground(roxo);
 		caixa.setLayout(new GridLayout(4, 1, 10, 10));
-		caixa.setBounds(LARGURA / 2 - 150, 250, 300, 180);
+	    caixa.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 100, 0, 100));
+	    frame.add(caixa);
 
-		// campos de texto
-		JTextField campoGame = new JTextField();
-		campoGame.setHorizontalAlignment(JTextField.CENTER);
-		campoGame.setFont(new Font("SansSerif", Font.PLAIN, 18));
-		campoGame.setToolTipText("Game PIN");
-		campoGame.setText("Game PIN");
-
-		JTextField campoTeam = new JTextField();
-		campoTeam.setHorizontalAlignment(JTextField.CENTER);
-		campoTeam.setFont(new Font("SansSerif", Font.PLAIN, 18));
-		campoTeam.setToolTipText("Team PIN");
-		campoTeam.setText("Team PIN");
-
-		JTextField campoPlayer = new JTextField();
-		campoPlayer.setHorizontalAlignment(JTextField.CENTER);
-		campoPlayer.setFont(new Font("SansSerif", Font.PLAIN, 18));
-		campoPlayer.setToolTipText("Player ID");
-		campoPlayer.setText("Player ID");
+		JTextField campoGame = criarCampoComPlaceholder("Game PIN");
+	    JTextField campoTeam = criarCampoComPlaceholder("Team PIN");
+	    JTextField campoPlayer = criarCampoComPlaceholder("Player ID");
 
 		JButton enter = new JButton("Enter");
 		enter.setBackground(Color.BLACK);
 		enter.setForeground(Color.WHITE);
 		enter.setFont(new Font("SansSerif", Font.BOLD, 18));
 
-		// adiciona
+        enter.addActionListener(e -> {
+		uploadQuestion("Qual é o teu nome?"); // substitui por outra função se quiseres
+	    });
 
 		caixa.add(campoGame);
 		caixa.add(campoTeam);
@@ -93,6 +81,31 @@ public class Painel {
 		frame.revalidate();
 		frame.repaint();
 	}
+
+	private JTextField criarCampoComPlaceholder(String texto) {
+	JTextField campo = new JTextField(texto, JTextField.CENTER);
+	campo.setFont(new Font("SansSerif", Font.PLAIN, 18));
+	campo.setForeground(Color.GRAY);
+	campo.addFocusListener(new java.awt.event.FocusAdapter() {
+		@Override
+		public void focusGained(java.awt.event.FocusEvent e) {
+			if (campo.getText().equals(texto) && campo.getForeground().equals(Color.GRAY)) {
+				campo.setText("");
+				campo.setForeground(Color.BLACK);
+			}
+		}
+
+		@Override
+		public void focusLost(java.awt.event.FocusEvent e) {
+			if (campo.getText().isEmpty()) {
+				campo.setText(texto);
+				campo.setForeground(Color.GRAY);
+			}
+		}
+	});
+	return campo;
+}
+
 
 	public void uploadQuestion(String question) {
 		clearFrame();
@@ -140,9 +153,9 @@ public class Painel {
 	// pequeno teste
 	public static void main(String[] args) {
 		Painel p = new Painel();
-		//p.uploadHomePage();
+		p.uploadHomePage();
 		//p.uploadQuestion("Qual é o meu nome?");
-		p.uploadQuestionOptions("Qual é o meu nome?");
+		//p.uploadQuestionOptions("Qual é o meu nome?");
 		// p.open();
 	}
 }
