@@ -3,8 +3,10 @@ package com.example;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.List;
 
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
 public class Pergunta {
 
@@ -49,11 +51,11 @@ public class Pergunta {
         this.correct = correct;
     }
 
-    public static Pergunta readFromFile(String caminhoArquivo) {
+    public static List<Pergunta> readAllFromFile(String caminhoArquivo) {
         try {
-            String content = new String(Files.readAllBytes(Paths.get(caminhoArquivo)));
+            String content = Files.readString(Paths.get(caminhoArquivo));
             Gson gson = new Gson();
-            return gson.fromJson(content, Pergunta.class);
+            return gson.fromJson(content, new TypeToken<List<Pergunta>>(){}.getType());
         } catch (IOException e) {
             e.printStackTrace();
             return null;
