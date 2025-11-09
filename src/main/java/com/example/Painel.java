@@ -6,6 +6,7 @@ import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.Toolkit;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -59,12 +60,12 @@ public class Painel {
 		JPanel caixa = new JPanel();
 		caixa.setBackground(roxo);
 		caixa.setLayout(new GridLayout(4, 1, 10, 10));
-	    caixa.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 100, 0, 100));
-	    frame.add(caixa);
+		caixa.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 100, 0, 100));
+		frame.add(caixa);
 
 		JTextField campoGame = criarCampoComPlaceholder("Game PIN");
-	    JTextField campoTeam = criarCampoComPlaceholder("Team PIN");
-	    JTextField campoPlayer = criarCampoComPlaceholder("Player ID");
+		JTextField campoTeam = criarCampoComPlaceholder("Team PIN");
+		JTextField campoPlayer = criarCampoComPlaceholder("Player ID");
 
 		JButton enter = new JButton("Enter");
 		enter.setBackground(Color.BLACK);
@@ -92,7 +93,7 @@ public class Painel {
 		} else {
 		uploadQuestion("Qual é o meu nome?");
 		}
-	    });
+		});
 
 		caixa.add(campoGame);
 		caixa.add(campoTeam);
@@ -149,18 +150,20 @@ public class Painel {
 
 		CountDownLatch latch = new CountDownLatch(1);
 
-		final int[] tempoRestante = {5};
+		AtomicInteger tempoRestante = new AtomicInteger(5);
+
 
 		javax.swing.Timer timer = new javax.swing.Timer(1000, e -> {
-		tempoRestante[0]--;
-		countdown.setText(String.valueOf(tempoRestante[0]));
+		int restante = tempoRestante.decrementAndGet();
+        countdown.setText(String.valueOf(restante));
 
-		if (tempoRestante[0] <= 0) {
-			((javax.swing.Timer) e.getSource()).stop();
-			latch.countDown(); 
-		}
-	});
-	timer.start();
+        if (restante <= 0) {
+        ((javax.swing.Timer) e.getSource()).stop();
+        latch.countDown();
+        }
+		});
+		timer.start();
+
 
 	new Thread(() -> {
 		try {
@@ -205,8 +208,6 @@ public class Painel {
 	public static void main(String[] args) {
 		Painel p = new Painel();
 		p.uploadHomePage();
-		//p.uploadQuestion("Qual é o meu nome?");
-		//p.uploadQuestionOptions("Qual é o meu nome?");
-		// p.open();
+
 	}
 }
