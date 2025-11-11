@@ -6,33 +6,32 @@ import java.nio.file.Paths;
 import java.util.List;
 
 import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 
 public class Pergunta {
 
-    private String questao;
-    private String[] opcoes;
+    private String question;
+    private String[] options;
     private int points;
     private int correct;
 
-    public String getQuestao() {
-        return questao;
+    public String getQuestion() {
+        return question;
     }
 
-    public void setQuestao(String questao) {
-        this.questao = questao;
+    public void setQuestion(String question) {
+        this.question = question;
     }
 
-    public String[] getOpcoes() {
-        return opcoes;
+    public String[] getOptions() {
+        return options;
     }
 
-    public void setOpcoes(String[] opcoes) {
-        this.opcoes = opcoes;
+    public void setOptions(String[] options) {
+        this.options = options;
     }
 
-    public int getNum_opcoes() {
-        return (opcoes != null) ? opcoes.length : 0;
+    public int getNum_options() {
+        return (options != null) ? options.length : 0;
     }
 
     public int getPoints() {
@@ -55,7 +54,14 @@ public class Pergunta {
         try {
             String content = Files.readString(Paths.get(caminhoArquivo));
             Gson gson = new Gson();
-            return gson.fromJson(content, new TypeToken<List<Pergunta>>(){}.getType());
+
+            Quiz quiz =gson.fromJson(content, Quiz.class);
+        if (quiz != null && quiz.getQuestions() != null && !quiz.getQuestions().isEmpty()) {
+                return quiz.getQuestions();
+            } else {
+                System.err.println("⚠️ Nenhuma pergunta encontrada no ficheiro JSON!");
+                return null;
+            }
         } catch (IOException e) {
             e.printStackTrace();
             return null;

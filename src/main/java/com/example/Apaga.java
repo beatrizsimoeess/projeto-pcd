@@ -21,7 +21,7 @@ public class Apaga {
     }
 
     private static void iniciarQuiz() {
-        perguntas = Pergunta.readAllFromFile("perguntas.json");
+        perguntas = Pergunta.readAllFromFile("src/main/resources/teste.json");
 
         if (perguntas == null || perguntas.isEmpty()) {
             JOptionPane.showMessageDialog(null, "Nenhuma pergunta encontrada");
@@ -47,14 +47,14 @@ public class Apaga {
 
         frame.getContentPane().removeAll();
 
-        JLabel label = new JLabel(pergunta.getQuestao(), JLabel.CENTER);
+        JLabel label = new JLabel(pergunta.getQuestion(), JLabel.CENTER);
         label.setFont(new Font("SansSerif", Font.BOLD, 18)); 
         frame.add(label, BorderLayout.NORTH);
         JPanel panel = new JPanel(new GridLayout(0, 1));
 
         // Loop correto com índice para verificar resposta correta
-        for (int i = 0; i < pergunta.getOpcoes().length; i++) {
-            String opcao = pergunta.getOpcoes()[i];
+        for (int i = 0; i < pergunta.getOptions().length; i++) {
+            String opcao = pergunta.getOptions()[i];
             int indiceOpcao = i; 
             JButton botao = new JButton(opcao);
             botao.addActionListener(e -> {
@@ -67,7 +67,7 @@ public class Apaga {
                 if (indiceOpcao == pergunta.getCorrect()) {
                     JOptionPane.showMessageDialog(frame, "Correto +" + pergunta.getPoints() + " pontos");
                 } else {
-                    String respostaCerta = pergunta.getOpcoes()[pergunta.getCorrect()];
+                    String respostaCerta = pergunta.getOptions()[pergunta.getCorrect()];
                     JOptionPane.showMessageDialog(frame, "Errado. A resposta correta era: " + respostaCerta);
                 }
                 indiceAtual++;

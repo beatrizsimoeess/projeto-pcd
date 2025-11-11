@@ -5,6 +5,7 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.Toolkit;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -17,6 +18,10 @@ import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
 public class Painel {
+
+	private static List<Pergunta> perguntas; 
+    private static int indiceAtual = 0;   
+
 	private JFrame frame;
 	private static final int LARGURA = 600;
 	private static final int ALTURA = 400;
@@ -56,7 +61,6 @@ public class Painel {
 		titulo.setFont(new Font("Arial", Font.BOLD, 64));
 		frame.add(titulo);
 
-		// caixa para os inputs
 		JPanel caixa = new JPanel();
 		caixa.setBackground(roxo);
 		caixa.setLayout(new GridLayout(4, 1, 10, 10));
@@ -91,8 +95,16 @@ public class Painel {
 				javax.swing.JOptionPane.WARNING_MESSAGE
 			);
 		} else {
-		uploadQuestion("Qual é o meu nome?");
-		}
+			perguntas = Pergunta.readAllFromFile("src/main/resources/quizzes.json");
+
+            if (perguntas == null || perguntas.isEmpty()) {
+            javax.swing.JOptionPane.showMessageDialog(frame, "Erro: ficheiro de perguntas vazio ou não encontrado.");
+            return;
+            }
+System.out.println("Perguntas lidas: " + (perguntas != null ? perguntas.size() : "null"));
+
+			uploadQuestion(perguntas.get(indiceAtual).getQuestion());
+			}
 		});
 
 		caixa.add(campoGame);
@@ -168,33 +180,52 @@ public class Painel {
 	new Thread(() -> {
 		try {
 			latch.await();
-			SwingUtilities.invokeLater(() -> uploadQuestionOptions("Qual é o meu nome?"));
+			SwingUtilities.invokeLater(() -> uploadQuestionOptions(perguntas.get(indiceAtual)));
 		} catch (InterruptedException ex) {
 			Thread.currentThread().interrupt();
 		}
 	}).start();
 	}
 	
-	public void uploadQuestionOptions(String question) {
+	public void uploadQuestionOptions(Pergunta pergunta) {
 		clearFrame();
 		frame.getContentPane().setBackground(cinza);
 		frame.setLayout(new GridLayout(2, 1));
 		
-		JLabel pergunta = new JLabel( question, JLabel.CENTER);
-		pergunta.setFont(new Font("SansSerif", Font.BOLD, 24));
-		pergunta.setForeground(Color.BLACK);
-		frame.add(pergunta);
+		JLabel question = new JLabel( pergunta.getQuestion(), JLabel.CENTER);
+		question.setFont(new Font("SansSerif", Font.BOLD, 24));
+		question.setForeground(Color.BLACK);
+		frame.add(question);
 		
 		JPanel optionsPainel = new JPanel(new GridLayout (2,2));
 		optionsPainel.setBackground(new Color(237, 237, 237));
 		
-		
+		String[] opcoes = pergunta.getOptions();
 		Cores[] cores = Cores.values();
-		for (int i= 0; i < 4; i++) {
-			JButton botao = new JButton();
+
+		for (int i= 0; i < opcoes.length; i++) {
+			JButton botao = new JButton(opcoes[i]);
 			botao.setBackground(cores[i].getColor());
 			botao.setForeground(Color.WHITE);
 			botao.setFont(new Font("SansSerif", Font.BOLD, 16));
+
+			int index = i;
+			botao.addActionListener(e -> {
+            if (index == pergunta.getCorrect()) {
+                javax.swing.JOptionPane.showMessageDialog(frame, "Correto! +" + pergunta.getPoints() + " pontos.");
+            } else {
+                javax.swing.JOptionPane.showMessageDialog(frame, 
+                    "Errado! Resposta certa: " + opcoes[pergunta.getCorrect()]);
+            }
+
+            indiceAtual++;
+            if (indiceAtual < perguntas.size()) {
+                uploadQuestion(perguntas.get(indiceAtual).getQuestion());
+            } else {
+                javax.swing.JOptionPane.showMessageDialog(frame, "Fim do quiz!");
+                frame.dispose();
+            }
+        });
 			optionsPainel.add(botao);
 		}
 		frame.add(optionsPainel);
