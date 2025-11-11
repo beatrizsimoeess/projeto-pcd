@@ -59,7 +59,7 @@ public class Pergunta {
         if (quiz != null && quiz.getQuestions() != null && !quiz.getQuestions().isEmpty()) {
                 return quiz.getQuestions();
             } else {
-                System.err.println("⚠️ Nenhuma pergunta encontrada no ficheiro JSON!");
+                System.err.println("Nenhuma pergunta encontrada no ficheiro JSON");
                 return null;
             }
         } catch (IOException e) {
