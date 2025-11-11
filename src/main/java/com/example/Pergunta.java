@@ -10,29 +10,29 @@ import com.google.gson.reflect.TypeToken;
 
 public class Pergunta {
 
-    private String questao;
-    private String[] opcoes;
+    private String question;
+    private String[] options;
     private int points;
     private int correct;
 
     public String getQuestao() {
-        return questao;
+        return question;
     }
 
     public void setQuestao(String questao) {
-        this.questao = questao;
+        this.question = questao;
     }
 
     public String[] getOpcoes() {
-        return opcoes;
+        return options;
     }
 
     public void setOpcoes(String[] opcoes) {
-        this.opcoes = opcoes;
+        this.options = opcoes;
     }
 
     public int getNum_opcoes() {
-        return (opcoes != null) ? opcoes.length : 0;
+        return (options != null) ? options.length : 0;
     }
 
     public int getPoints() {
