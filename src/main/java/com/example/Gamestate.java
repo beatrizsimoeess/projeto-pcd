@@ -16,6 +16,7 @@ public class Gamestate {
 	//equipas-pontos
 	//pessoas-pontos
 	//pontos na ronda
+	//
 	
 	//3-respostas
 	//respostas dadas por username
