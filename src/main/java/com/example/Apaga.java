@@ -21,7 +21,7 @@ public class Apaga {
     }
 
     private static void iniciarQuiz() {
-        perguntas = Pergunta.readAllFromFile("src/main/resources/teste.json");
+        perguntas = Pergunta.readAllFromFile("src/main/resources/quizzes.json");
 
         if (perguntas == null || perguntas.isEmpty()) {
             JOptionPane.showMessageDialog(null, "Nenhuma pergunta encontrada");
