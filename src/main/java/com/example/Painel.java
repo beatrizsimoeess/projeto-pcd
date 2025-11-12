@@ -1,5 +1,6 @@
 package com.example;
 
+import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -7,8 +8,10 @@ import java.awt.GridLayout;
 import java.awt.Toolkit;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -24,9 +27,15 @@ public class Painel {
 
 	private JFrame frame;
 	private static final int LARGURA = 600;
-	private static final int ALTURA = 400;
+	private static final int ALTURA = 500;
     private final Color roxo = new Color (91, 72, 181);
     private final Color cinza = new Color(237,237,237);
+
+	private javax.swing.Timer timerDaRonda;
+    private CountDownLatch latchDaRonda;
+    private AtomicBoolean respondeu;
+    private JLabel countdownLabel;
+	private JLabel roundLabel;
 
 	public Painel() {
 		frame = new JFrame("IsKahoot");
@@ -103,7 +112,7 @@ public class Painel {
             }
 System.out.println("Perguntas lidas: " + (perguntas != null ? perguntas.size() : "null"));
 
-			uploadQuestion(perguntas.get(indiceAtual).getQuestion());
+			uploadQuestion(perguntas.get(indiceAtual));
 			}
 		});
 
@@ -142,12 +151,16 @@ System.out.println("Perguntas lidas: " + (perguntas != null ? perguntas.size() :
 }
 
 
-	public void uploadQuestion(String question) {
+	public void uploadQuestion(Pergunta question) {
 		clearFrame();
 		frame.getContentPane().setBackground(cinza);
 		frame.setLayout(new GridLayout(2, 1));
+
+		String questionText = "<html><body style='width: 450px; text-align: center;'>" +
+                question.getQuestion() +
+                "</body></html>";
 		
-		JLabel pergunta = new JLabel( question, JLabel.CENTER);
+		JLabel pergunta = new JLabel( questionText, JLabel.CENTER);
 		pergunta.setFont(new Font("SansSerif", Font.BOLD, 24));
 		pergunta.setForeground(Color.BLACK);
 		frame.add(pergunta);
@@ -190,50 +203,129 @@ System.out.println("Perguntas lidas: " + (perguntas != null ? perguntas.size() :
 	public void uploadQuestionOptions(Pergunta pergunta) {
 		clearFrame();
 		frame.getContentPane().setBackground(cinza);
-		frame.setLayout(new GridLayout(2, 1));
-		
-		JLabel question = new JLabel( pergunta.getQuestion(), JLabel.CENTER);
+
+		frame.setLayout(new GridLayout(3, 1, 10, 5));
+
+		//cabeçalho para numeração e countdown
+		JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(cinza);
+
+		//numeração
+        String roundText = "Pergunta " + (indiceAtual + 1) + " / " + perguntas.size();
+        roundLabel = new JLabel(roundText);
+        roundLabel.setFont(new Font("SansSerif", Font.BOLD, 18));
+        roundLabel.setForeground(Color.DARK_GRAY);
+        roundLabel.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+        headerPanel.add(roundLabel, BorderLayout.WEST);
+
+        // countdown
+        countdownLabel = new JLabel("10"); 
+        countdownLabel.setFont(new Font("SansSerif", Font.BOLD, 22));
+        countdownLabel.setForeground(Color.BLACK);
+        countdownLabel.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+        headerPanel.add(countdownLabel, BorderLayout.EAST);
+
+        frame.add(headerPanel);
+
+		String questionText = "<html><body style='width: 450px; text-align: center;'>" +
+                pergunta.getQuestion() +
+                "</body></html>";
+		JLabel question = new JLabel( questionText, JLabel.CENTER);
 		question.setFont(new Font("SansSerif", Font.BOLD, 24));
 		question.setForeground(Color.BLACK);
+		question.setBorder(BorderFactory.createEmptyBorder(15, 10, 15, 10));
 		frame.add(question);
 		
 		JPanel optionsPainel = new JPanel(new GridLayout (2,2));
 		optionsPainel.setBackground(new Color(237, 237, 237));
 		
+		
 		String[] opcoes = pergunta.getOptions();
 		Cores[] cores = Cores.values();
 
+		respondeu = new AtomicBoolean(false);
+
 		for (int i= 0; i < opcoes.length; i++) {
-			JButton botao = new JButton(opcoes[i]);
+			String optionText = "<html><body style='text-align: center;'>" +
+                                opcoes[i] +
+                                "</body></html>";
+			JButton botao = new JButton(optionText);
 			botao.setBackground(cores[i].getColor());
 			botao.setForeground(Color.WHITE);
 			botao.setFont(new Font("SansSerif", Font.BOLD, 16));
 
 			int index = i;
 			botao.addActionListener(e -> {
-            if (index == pergunta.getCorrect()) {
-                javax.swing.JOptionPane.showMessageDialog(frame, "Correto! +" + pergunta.getPoints() + " pontos.");
-            } else {
-                javax.swing.JOptionPane.showMessageDialog(frame, 
-                    "Errado! Resposta certa: " + opcoes[pergunta.getCorrect()]);
-            }
+                if (timerDaRonda.isRunning()) {
+                    timerDaRonda.stop();
+                }
+                latchDaRonda.countDown();
+                respondeu.set(true);
 
-            indiceAtual++;
-            if (indiceAtual < perguntas.size()) {
-                uploadQuestion(perguntas.get(indiceAtual).getQuestion());
-            } else {
-                javax.swing.JOptionPane.showMessageDialog(frame, "Fim do quiz!");
-                frame.dispose();
-            }
-        });
-			optionsPainel.add(botao);
-		}
+                if (index == pergunta.getCorrect()) {
+                    javax.swing.JOptionPane.showMessageDialog(frame, "Correto! +" + pergunta.getPoints() + " pontos.");
+                } else {
+                    javax.swing.JOptionPane.showMessageDialog(frame,
+                            "Errado! Resposta certa: " + opcoes[pergunta.getCorrect()]);
+                }
+                nextQuestion();
+            });
+            optionsPainel.add(botao);
+        }
 		frame.add(optionsPainel);
 		
 		frame.revalidate();
 		frame.repaint();
+
+		iniciarTimerDaRonda(10);
 	}
 	
+
+	private void iniciarTimerDaRonda(int segundos) {
+		latchDaRonda = new CountDownLatch(1);
+        AtomicInteger tempoRestante = new AtomicInteger(segundos);
+        
+        // Garante que qualquer timer anterior é parado
+        if (timerDaRonda != null && timerDaRonda.isRunning()) {
+            timerDaRonda.stop();
+        }
+
+        timerDaRonda = new javax.swing.Timer(1000, e -> {
+            int restante = tempoRestante.decrementAndGet();
+            countdownLabel.setText(String.valueOf(restante));
+
+            if (restante <= 0) {
+                ((javax.swing.Timer) e.getSource()).stop();
+                latchDaRonda.countDown();
+            }
+        });
+        timerDaRonda.start();
+
+        new Thread(() -> {
+            try {
+                latchDaRonda.await();
+                
+                SwingUtilities.invokeLater(() -> {
+                    if (!respondeu.get()) { 
+                        javax.swing.JOptionPane.showMessageDialog(frame, "Tempo esgotado!");
+                        nextQuestion(); 
+                    }
+                });
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+            }
+        }).start();
+    }
+
+	private void nextQuestion() {
+		indiceAtual++;
+        if (indiceAtual < perguntas.size()) {
+            uploadQuestion(perguntas.get(indiceAtual));
+        } else {
+            javax.swing.JOptionPane.showMessageDialog(frame, "Fim do quiz!");
+            frame.dispose();
+        }
+	}
 
 	// pequeno teste
 	public static void main(String[] args) {

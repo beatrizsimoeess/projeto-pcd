@@ -2,7 +2,8 @@ package com.example;
 import javax.swing.*; 
 import java.awt.*; 
 import java.util.List; 
-import java.util.concurrent.CountDownLatch; 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger; 
 
 public class Apaga {
@@ -47,16 +48,21 @@ public class Apaga {
 
         frame.getContentPane().removeAll();
 
-        JLabel label = new JLabel(pergunta.getQuestion(), JLabel.CENTER);
-        label.setFont(new Font("SansSerif", Font.BOLD, 18)); 
+        //  Torna o texto da pergunta maior (HTML + largura fixa)
+        JLabel label = new JLabel("<html><body style='text-align:center; width:350px;'>" 
+            + pergunta.getQuestion() + "</body></html>", JLabel.CENTER);
+        label.setFont(new Font("SansSerif", Font.BOLD, 18));
         frame.add(label, BorderLayout.NORTH);
+
         JPanel panel = new JPanel(new GridLayout(0, 1));
 
         // Loop correto com índice para verificar resposta correta
         for (int i = 0; i < pergunta.getOptions().length; i++) {
             String opcao = pergunta.getOptions()[i];
             int indiceOpcao = i; 
-            JButton botao = new JButton(opcao);
+           // opções longas também pode ter o mesmo problema 
+            JButton botao = new JButton("<html><body style='text-align:left; width:320px;'>" 
+                + opcao + "</body></html>");
             botao.addActionListener(e -> {
                 // Para o timer se o utilizador responder antes de o tempo acabar
                 if (timer.isRunning()) {
@@ -88,40 +94,42 @@ public class Apaga {
 
         iniciarTimer();
     }
-
     private static void iniciarTimer() {
-        latch = new CountDownLatch(1); 
-        //O int[] é um “truque” para permitir mutabilidade dentro de uma lambda, 
-        //mas não é thread-safe. Para quizzes simples funciona,
-        // mas não é seguro se houver múltiplas threads a aceder
-        tempoRestante = new AtomicInteger(5); 
+        latch = new CountDownLatch(1);
+        tempoRestante = new AtomicInteger(5);
+        AtomicBoolean respondeu = new AtomicBoolean(false);
 
-        // Cria o Timer que decrementa o tempo a cada segundo,
-        // na nova sintese é variável de classe, não local, 
-        //para que possas pará-lo quando o utilizador clicar numa opção antes de o tempo acabar.
         timer = new javax.swing.Timer(1000, e -> {
-            int restante = tempoRestante.decrementAndGet(); 
-            countdownLabel.setText(String.valueOf(restante)); 
+            int restante = tempoRestante.decrementAndGet();
+            countdownLabel.setText(String.valueOf(restante));
 
             if (restante <= 0) {
-                ((javax.swing.Timer) e.getSource()).stop(); 
-                latch.countDown(); 
+                ((javax.swing.Timer) e.getSource()).stop();
+                latch.countDown();
             }
         });
-        timer.start(); 
+        timer.start();
 
         new Thread(() -> {
             try {
-                latch.await(); 
+                latch.await();
                 SwingUtilities.invokeLater(() -> {
-                    JOptionPane.showMessageDialog(frame, "Tempo esgotado!");
-                    indiceAtual++; 
-                    mostrarPerguntaAtual();
+                    if (!respondeu.get()) {
+                        JOptionPane.showMessageDialog(frame, "Tempo esgotado!");
+                        indiceAtual++;
+                        mostrarPerguntaAtual();
+                    }
                 });
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
             }
         }).start();
+
+        for (Component comp : ((JPanel) frame.getContentPane()
+                .getComponent(1)).getComponents()) {
+            if (comp instanceof JButton) {
+                ((JButton) comp).addActionListener(e -> respondeu.set(true));
+            }
+        }
     }
 }
-
