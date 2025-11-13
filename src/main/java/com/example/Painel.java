@@ -17,10 +17,14 @@ import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
+import javax.swing.UIManager;
+import javax.swing.SwingUtilities;
+
 public class Painel {
 
 	private static List<Pergunta> perguntas; 
     private static int indiceAtual = 0;   
+
 
 	private JFrame frame;
 	private static final int LARGURA = 600;
@@ -38,6 +42,7 @@ public class Painel {
 		int y = (dimension.height - ALTURA) / 2;
 		frame.setLocation(x, y);
 		frame.setVisible(true);
+
 
 	}
 
@@ -235,10 +240,17 @@ System.out.println("Perguntas lidas: " + (perguntas != null ? perguntas.size() :
 	}
 	
 
-	// pequeno teste
-	public static void main(String[] args) {
-		Painel p = new Painel();
-		p.uploadHomePage();
 
+
+	public static void main(String[] args) {
+	    try {
+	        UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
+	    } catch (Exception ignored) {}
+
+	    SwingUtilities.invokeLater(() -> {
+	        Painel p = new Painel();
+	        p.uploadHomePage();
+	    });
 	}
+
 }

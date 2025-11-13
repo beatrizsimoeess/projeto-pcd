@@ -2,12 +2,15 @@ package com.example;
 import javax.swing.*; 
 import java.awt.*; 
 import java.util.List; 
-import java.util.concurrent.CountDownLatch; 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger; 
 
 public class Apaga {
 
+	Gamestate gamestate;
     private static List<Pergunta> perguntas; 
+    Pergunta perguntaAtual = gamestate.getCurrentQuestion();
     private static int indiceAtual = 0;     
 
     private static JFrame frame;             
@@ -88,40 +91,44 @@ public class Apaga {
 
         iniciarTimer();
     }
-
     private static void iniciarTimer() {
-        latch = new CountDownLatch(1); 
-        //O int[] é um “truque” para permitir mutabilidade dentro de uma lambda, 
-        //mas não é thread-safe. Para quizzes simples funciona,
-        // mas não é seguro se houver múltiplas threads a aceder
-        tempoRestante = new AtomicInteger(5); 
+        latch = new CountDownLatch(1);
+        tempoRestante = new AtomicInteger(5);
+        AtomicBoolean respondeu = new AtomicBoolean(false);
 
-        // Cria o Timer que decrementa o tempo a cada segundo,
-        // na nova sintese é variável de classe, não local, 
-        //para que possas pará-lo quando o utilizador clicar numa opção antes de o tempo acabar.
         timer = new javax.swing.Timer(1000, e -> {
-            int restante = tempoRestante.decrementAndGet(); 
-            countdownLabel.setText(String.valueOf(restante)); 
+            int restante = tempoRestante.decrementAndGet();
+            countdownLabel.setText(String.valueOf(restante));
 
             if (restante <= 0) {
-                ((javax.swing.Timer) e.getSource()).stop(); 
-                latch.countDown(); 
+                ((javax.swing.Timer) e.getSource()).stop();
+                latch.countDown();
             }
         });
-        timer.start(); 
+        timer.start();
 
         new Thread(() -> {
             try {
-                latch.await(); 
+                latch.await();
                 SwingUtilities.invokeLater(() -> {
-                    JOptionPane.showMessageDialog(frame, "Tempo esgotado!");
-                    indiceAtual++; 
-                    mostrarPerguntaAtual();
+                    if (!respondeu.get()) {
+                        JOptionPane.showMessageDialog(frame, "Tempo esgotado!");
+                        indiceAtual++;
+                        mostrarPerguntaAtual();
+                    }
                 });
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
             }
         }).start();
+
+        for (Component comp : ((JPanel) frame.getContentPane()
+                .getComponent(1)).getComponents()) {
+            if (comp instanceof JButton) {
+                ((JButton) comp).addActionListener(e -> respondeu.set(true));
+            }
+        }
     }
 }
+
 
