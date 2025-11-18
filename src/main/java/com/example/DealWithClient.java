@@ -1,5 +1,5 @@
 package com.example;
 
-public class Jogador extends Thread {
+public class DealWithClient extends Thread {
 
 }

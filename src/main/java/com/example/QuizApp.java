@@ -3,8 +3,7 @@ package com.example;
 import javax.swing.*;
 import java.awt.*;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
+
 
 public class QuizApp {
 
@@ -13,9 +12,12 @@ public class QuizApp {
     private String currentPlayer;  
     private JLabel timerLabel;     
     private JLabel roundLabel;   
-    private Timer timer; 
     private final String questionFilePath="src/main/resources/quizzes.json";
-    private final int answerTime= 20;
+    private final int answerTime= 30;
+    private Thread timerThread; 
+    private volatile boolean isQuestionActive = false; 
+    private int currentRemainingTime; 
+    private boolean hasResponded = false;
 
     public static void main(String[] args) {
         try {
@@ -54,13 +56,11 @@ public class QuizApp {
         enterBtn.setForeground(Color.WHITE);
         enterBtn.setEnabled(false); 
 
-        // só dá para entrar se os campos forem válidos
         Runnable verificarCampos = () -> {
             boolean habilitar = isIntField(gameField) && isIntField(teamField) && isIntField(playerField);
             enterBtn.setEnabled(habilitar);
         };
 
-        // vai vendo se houve alguma mudança nos campos
         gameField.getDocument().addDocumentListener(new SimpleDocumentListener(verificarCampos));
         teamField.getDocument().addDocumentListener(new SimpleDocumentListener(verificarCampos));
         playerField.getDocument().addDocumentListener(new SimpleDocumentListener(verificarCampos));
@@ -76,7 +76,7 @@ public class QuizApp {
                 JOptionPane.showMessageDialog(frame,"Erro: perguntas não encontradas.");
                 return;
             }
-
+//pode mudar os números 1,1 tratar quando for preciso
             gamestate = new Gamestate(game, perguntas, 1,1);
             gamestate.assignPlayerToTeam(player, team);
 
@@ -129,95 +129,120 @@ public class QuizApp {
 
    
     private void showQuestion(Pergunta pergunta) {
-        frame.getContentPane().removeAll(); 
+        frame.getContentPane().removeAll();
         frame.setLayout(new BorderLayout());
         frame.getContentPane().setBackground(new Color(237,237,237));
+
+        isQuestionActive = true;
+        hasResponded = false;
+        currentRemainingTime = answerTime;
 
         JPanel topPanel = new JPanel(new BorderLayout());
         topPanel.setOpaque(false);
 
-        // Label do timer
         timerLabel = new JLabel(String.valueOf(answerTime), JLabel.CENTER);
         timerLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
         timerLabel.setForeground(Color.BLACK);
         timerLabel.setPreferredSize(new Dimension(50,50));
+
         JPanel timerPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         timerPanel.setOpaque(false);
         timerPanel.add(timerLabel);
         topPanel.add(timerPanel, BorderLayout.EAST);
-        
-        String roundText = "     "+(gamestate.getCurrentQuestionIndex()+1)+ "/" + gamestate.getQuestionts().size();
-        roundLabel= new JLabel(roundText);
+
+        String roundText = "     "
+                + (gamestate.getCurrentQuestionIndex() + 1)
+                + "/"
+                + gamestate.getQuestionts().size();
+
+        roundLabel = new JLabel(roundText);
         roundLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
         roundLabel.setForeground(Color.BLACK);
         topPanel.add(roundLabel, BorderLayout.WEST);
-     
 
         JLabel questionLabel = new JLabel(
-                "<html><body style='text-align:center;width:400px;'>" + pergunta.getQuestion() + "</body></html>",
-                JLabel.CENTER);
+                "<html><body style='text-align:center;width:400px;'>"
+                        + pergunta.getQuestion()
+                        + "</body></html>",
+                JLabel.CENTER
+        );
         questionLabel.setFont(new Font("SansSerif", Font.BOLD, 24));
         topPanel.add(questionLabel, BorderLayout.CENTER);
 
         frame.add(topPanel, BorderLayout.NORTH);
 
-        JPanel optionsPanel = new JPanel(new GridLayout(2,2,10,10));
+        JPanel optionsPanel = new JPanel(new GridLayout(2, 2, 10, 10));
         optionsPanel.setBackground(new Color(237,237,237));
-        optionsPanel.setMaximumSize(new Dimension(600, 300));
         frame.add(optionsPanel, BorderLayout.CENTER);
 
         String[] opcoes = pergunta.getOptions();
         Cores[] coresEnum = Cores.values();
-        AtomicInteger tempo = new AtomicInteger(answerTime); 
-        AtomicBoolean respondeu = new AtomicBoolean(false); 
 
-        timer = new javax.swing.Timer(1000, e -> {
-            int restante = tempo.decrementAndGet();
-            timerLabel.setText(String.valueOf(restante));
-            if(restante <= 0){
-                timer.stop();
-                if(!respondeu.get()){
-                    respondeu.set(true);
-                    JOptionPane.showMessageDialog(frame,"Tempo esgotado!");
-                    gamestate.registerResponse(currentPlayer,null);
-                    gamestate.nextQuestion();
-                    nextQuestionOrEnd();
-                }
-            }
-        });
-        timer.start();
-        for(int i=0;i<opcoes.length;i++){
-            String textoBotao = "<html><body style='text-align:center;width:200px;'>" + opcoes[i] + "</body></html>";
+        for (int i = 0; i < opcoes.length; i++) {
+            String textoBotao = "<html><body style='text-align:center;width:200px;'>"
+                    + opcoes[i]
+                    + "</body></html>";
+
             JButton botao = new JButton(textoBotao);
-            botao.setBackground(coresEnum[i%coresEnum.length].getColor());
+            botao.setBackground(coresEnum[i % coresEnum.length].getColor());
             botao.setForeground(Color.WHITE);
             botao.setFont(new Font("SansSerif", Font.BOLD, 18));
-            botao.setFocusPainted(false); 
 
             int index = i;
             botao.addActionListener(e -> {
-                if(respondeu.get()) return; 
-                respondeu.set(true);
-                timer.stop();
+                if (!isQuestionActive || hasResponded) return;
+                hasResponded = true;
+                isQuestionActive = false;
 
-                gamestate.registerResponse(currentPlayer,index);
-                if(index == pergunta.getCorrect()) {
+                gamestate.registerResponse(currentPlayer, index);
+
+                if (index == pergunta.getCorrect()) {
                     gamestate.addPointsToPlayer(currentPlayer, pergunta.getPoints());
-                    JOptionPane.showMessageDialog(frame,"Correto! +" + pergunta.getPoints() + " pontos.");
+                    JOptionPane.showMessageDialog(frame,
+                            "Correto! +" + pergunta.getPoints() + " pontos.");
                 } else {
-                    JOptionPane.showMessageDialog(frame,"Errado! Resposta certa: " + pergunta.getOptions()[pergunta.getCorrect()]);
+                    JOptionPane.showMessageDialog(frame,
+                            "Errado! Resposta certa: " + opcoes[pergunta.getCorrect()]);
                 }
 
                 gamestate.nextQuestion();
                 nextQuestionOrEnd();
             });
+
             optionsPanel.add(botao);
         }
 
+        // timmer
+        timerThread = new Thread(() -> {
+            while (isQuestionActive && currentRemainingTime > 0) {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException ignored) {}
+
+                currentRemainingTime--;
+
+                SwingUtilities.invokeLater(() ->
+                        timerLabel.setText(String.valueOf(currentRemainingTime))
+                );
+            }
+
+            if (isQuestionActive && !hasResponded) {
+                isQuestionActive = false;
+                SwingUtilities.invokeLater(() -> {
+                    JOptionPane.showMessageDialog(frame, "Tempo esgotado!");
+                    gamestate.registerResponse(currentPlayer, null);
+                    gamestate.nextQuestion();
+                    nextQuestionOrEnd();
+                });
+            }
+        });
+
+        timerThread.start();
 
         frame.revalidate();
         frame.repaint();
     }
+
 
     
     private void nextQuestionOrEnd(){
