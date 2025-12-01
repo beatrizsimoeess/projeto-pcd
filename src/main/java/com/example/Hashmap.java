@@ -1,8 +1,8 @@
 package com.example;
 
-
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set; 
 import java.util.function.BiFunction;
 
 public class Hashmap<K, V> implements map<K, V> {
@@ -31,6 +31,23 @@ public class Hashmap<K, V> implements map<K, V> {
     public synchronized void clear() {
         internalMap.clear();
     }
+
+
+    @Override
+    public synchronized boolean isEmpty() {
+        return internalMap.isEmpty();
+    }
+
+    @Override
+    public synchronized Set<Map.Entry<K, V>> entrySet() {
+        return internalMap.entrySet();
+    }
+
+    @Override
+    public synchronized V remove(Object key) {
+        return internalMap.remove(key);
+    }
+    
 
     @Override
     public synchronized void putIfAbsent(K key, V value) {

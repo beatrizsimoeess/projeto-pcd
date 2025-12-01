@@ -1,39 +1,49 @@
 package com.example;
 
 import javax.swing.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import java.awt.*;
-import java.util.List;
-
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
+import java.util.Arrays;
 
 public class QuizApp {
 
-    private JFrame frame;           
-    private Gamestate gamestate;   
-    private String currentPlayer;  
-    private JLabel timerLabel;     
-    private JLabel roundLabel;   
-    private final String questionFilePath="src/main/resources/quizzes.json";
-    private final int answerTime= 30;
+    private Socket clientSocket;
+    private PrintWriter out;
+    private BufferedReader in;
+    private Thread clientListenerThread; 
+    
+    private JFrame frame;
+    private String currentPlayer;
+    private String currentGameCode;
+    private JLabel timerLabel;
+    private JLabel roundLabel;
+    
+    private final int answerTime= 30; 
+    
     private Thread timerThread; 
-    private volatile boolean isQuestionActive = false; 
-    private int currentRemainingTime; 
-    private boolean hasResponded = false;
+    private volatile boolean isQuestionActive = false;
+    private int currentRemainingTime;
+    private volatile boolean hasResponded = false;
 
     public static void main(String[] args) {
         try {
-//cena para ver no mac
-        	UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
+            UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
         } catch (Exception ignored) {}
         
         SwingUtilities.invokeLater(() -> new QuizApp().showHomePage());
     }
 
-  
     private void showHomePage() {
-        frame = new JFrame("IsKahoot");
+        frame = new JFrame("IsKahoot - Cliente");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setSize(600, 400);
-        frame.setLayout(new GridLayout(3, 1));
+        frame.setLayout(new GridLayout(4, 1)); 
         frame.setLocationRelativeTo(null); 
 
         JLabel titulo = new JLabel("IsKahoot!", JLabel.CENTER);
@@ -42,10 +52,11 @@ public class QuizApp {
         frame.getContentPane().setBackground(new Color(91, 72, 181));
         frame.add(titulo);
 
-        JPanel inputPanel = new JPanel(new GridLayout(4,1,10,10));
+        JPanel inputPanel = new JPanel(new GridLayout(5,1,10,10)); 
         inputPanel.setBackground(new Color(91,72,181));
         inputPanel.setBorder(BorderFactory.createEmptyBorder(0,100,0,100));
 
+        JTextField hostField = criarCampoComPlaceholder("Host:Port (ex: 127.0.0.1:8080)");
         JTextField gameField = criarCampoComPlaceholder("Game PIN");
         JTextField teamField = criarCampoComPlaceholder("Team PIN");
         JTextField playerField = criarCampoComPlaceholder("Player ID");
@@ -57,32 +68,39 @@ public class QuizApp {
         enterBtn.setEnabled(false); 
 
         Runnable verificarCampos = () -> {
-            boolean habilitar = isIntField(gameField) && isIntField(teamField) && isIntField(playerField);
+            boolean habilitar = isHostPort(hostField) && isIntField(gameField) && isIntField(teamField) && isIntField(playerField);
             enterBtn.setEnabled(habilitar);
         };
 
+        hostField.getDocument().addDocumentListener(new SimpleDocumentListener(verificarCampos));
         gameField.getDocument().addDocumentListener(new SimpleDocumentListener(verificarCampos));
         teamField.getDocument().addDocumentListener(new SimpleDocumentListener(verificarCampos));
         playerField.getDocument().addDocumentListener(new SimpleDocumentListener(verificarCampos));
 
         enterBtn.addActionListener(e -> {
+            String hostPort = hostField.getText().trim();
             String game = gameField.getText().trim();
             String team = teamField.getText().trim();
             String player = playerField.getText().trim();
-            currentPlayer = player;
-
-            List<Pergunta> perguntas = Pergunta.readAllFromFile(questionFilePath);
-            if (perguntas == null || perguntas.isEmpty()) {
-                JOptionPane.showMessageDialog(frame,"Erro: perguntas não encontradas.");
+            
+            String[] parts = hostPort.split(":");
+            if (parts.length != 2) {
+                JOptionPane.showMessageDialog(frame, "Formato do Host inválido. Use Host:Port.");
                 return;
             }
-//pode mudar os números 1,1 tratar quando for preciso
-            gamestate = new Gamestate(game, perguntas, 1,1);
-            gamestate.assignPlayerToTeam(player, team);
+            
+            int port;
+            try {
+                port = Integer.parseInt(parts[1]);
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(frame, "Porta inválida.");
+                return;
+            }
 
-            showQuestion(gamestate.getCurrentQuestion());
+            new Thread(() -> connectAndRegister(parts[0], port, game, team, player)).start();
         });
 
+        inputPanel.add(hostField);
         inputPanel.add(gameField);
         inputPanel.add(teamField);
         inputPanel.add(playerField);
@@ -90,8 +108,221 @@ public class QuizApp {
         frame.add(inputPanel);
         frame.setVisible(true);
     }
+    
+    private void connectAndRegister(String host, int port, String gameCode, String team, String player) {
+        try {
+            clientSocket = new Socket(host, port);
+            out = new PrintWriter(clientSocket.getOutputStream(), true);
+            in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 
- 
+            out.println("REGISTER " + gameCode + " " + team + " " + player);
+            
+            this.currentPlayer = player;
+            this.currentGameCode = gameCode;
+            
+            clientListenerThread = new Thread(this::listenToServer);
+            clientListenerThread.start();
+            
+            SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(frame, 
+                "Conectado. Aguardando resposta do Servidor...", "Sucesso", JOptionPane.INFORMATION_MESSAGE));
+
+        } catch (IOException e) {
+            SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(frame, 
+                "Erro ao conectar ao Servidor: " + e.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE));
+            closeConnection();
+        }
+    }
+
+    private void listenToServer() {
+        String serverMessage;
+        try {
+            while ((serverMessage = in.readLine()) != null) {
+                System.out.println("Servidor: " + serverMessage);
+                processServerMessage(serverMessage);
+            }
+        } catch (IOException e) {
+            if (clientSocket != null && !clientSocket.isClosed()) {
+                System.err.println("Conexão perdida com o Servidor: " + e.getMessage());
+            }
+        } finally {
+            closeConnection();
+            SwingUtilities.invokeLater(() -> {
+                JOptionPane.showMessageDialog(frame, "Sessão encerrada ou perdida.", "Fim", JOptionPane.INFORMATION_MESSAGE);
+                showHomePage(); 
+            });
+        }
+    }
+
+    private void processServerMessage(String message) {
+        String[] parts = message.split(" ", 2);
+        String command = parts[0].toUpperCase();
+        String payload = parts.length > 1 ? parts[1] : "";
+
+        SwingUtilities.invokeLater(() -> {
+            switch (command) {
+                case "SUCCESS":
+                    JOptionPane.showMessageDialog(frame, "Registo bem-sucedido. Aguardando início do jogo.");
+                    break;
+                case "ERROR":
+                    JOptionPane.showMessageDialog(frame, "Erro do Servidor: " + payload, "Erro de Registo", JOptionPane.ERROR_MESSAGE);
+                    closeConnection();
+                    showHomePage();
+                    break;
+                case "QUESTION":
+                 
+                    String[] questionParts = payload.split(" ", 2);
+                    String questionText = questionParts[0].replace("_", " ");
+                    String[] options = questionParts[1].split(";");
+                    
+                   
+                    Pergunta pergunta = new Pergunta();
+                    showQuestion(pergunta);
+                    break;
+
+                case "TIMER":
+                    try {
+                        currentRemainingTime = Integer.parseInt(payload);
+                        timerLabel.setText(String.valueOf(currentRemainingTime));
+                    } catch (NumberFormatException ignored) {}
+                    break;
+
+                case "RESULT":
+                    if (payload.startsWith("CORRETO")) {
+                        JOptionPane.showMessageDialog(frame, "Correto! " + payload.split(" ")[1] + " pontos.");
+                    } else {
+                         JOptionPane.showMessageDialog(frame, "Errado! " + payload); 
+                    }
+                    break;
+                    
+                case "LEADERBOARD":
+                     JOptionPane.showMessageDialog(frame, "Classificação:\n" + payload);
+                     break;
+
+                case "END_GAME":
+                     JOptionPane.showMessageDialog(frame, "Fim do quiz! Classificação final: [Verifique a mensagem LEADERBOARD]", "Fim do Jogo", JOptionPane.INFORMATION_MESSAGE);
+                     closeConnection();
+                     showHomePage();
+                     break;
+            }
+        });
+    }
+
+    private void closeConnection() {
+        try {
+            if (out != null) out.close();
+            if (in != null) in.close();
+            if (clientSocket != null) clientSocket.close();
+        } catch (IOException ignored) {}
+    }
+    
+    private void showQuestion(Pergunta pergunta) {
+        frame.getContentPane().removeAll();
+        frame.setLayout(new BorderLayout());
+        frame.getContentPane().setBackground(new Color(237,237,237));
+
+        isQuestionActive = true;
+        hasResponded = false;
+        currentRemainingTime = answerTime; 
+
+        JPanel topPanel = new JPanel(new BorderLayout());
+        topPanel.setOpaque(false);
+
+        timerLabel = new JLabel(String.valueOf(answerTime), JLabel.CENTER);
+        timerLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
+        timerLabel.setForeground(Color.BLACK);
+        timerLabel.setPreferredSize(new Dimension(50,50));
+
+        JPanel timerPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        timerPanel.setOpaque(false);
+        timerPanel.add(timerLabel);
+        topPanel.add(timerPanel, BorderLayout.EAST);
+
+        roundLabel = new JLabel("      Rodada: Aguardando...");
+        roundLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
+        roundLabel.setForeground(Color.BLACK);
+        topPanel.add(roundLabel, BorderLayout.WEST);
+
+        JLabel questionLabel = new JLabel(
+                "<html><body style='text-align:center;width:400px;'>"
+                        + pergunta.getQuestion()
+                        + "</body></html>",
+                JLabel.CENTER
+        );
+        questionLabel.setFont(new Font("SansSerif", Font.BOLD, 24));
+        topPanel.add(questionLabel, BorderLayout.CENTER);
+
+        frame.add(topPanel, BorderLayout.NORTH);
+
+        JPanel optionsPanel = new JPanel(new GridLayout(2, 2, 10, 10));
+        optionsPanel.setBackground(new Color(237,237,237));
+        frame.add(optionsPanel, BorderLayout.CENTER);
+
+        String[] opcoes = pergunta.getOptions(); 
+        Cores[] coresEnum = Cores.values();
+
+        for (int i = 0; i < opcoes.length; i++) {
+            String textoBotao = "<html><body style='text-align:center;width:200px;'>"
+                    + opcoes[i]
+                    + "</body></html>";
+
+            JButton botao = new JButton(textoBotao);
+            botao.setBackground(coresEnum[i % coresEnum.length].getColor());
+            botao.setForeground(Color.WHITE);
+            botao.setFont(new Font("SansSerif", Font.BOLD, 18));
+
+            int index = i;
+            botao.addActionListener(e -> {
+                if (!isQuestionActive || hasResponded) return;
+                
+                hasResponded = true;
+                isQuestionActive = false;
+                
+                new Thread(() -> {
+                    out.println("RESPONSE " + currentGameCode + " " + currentPlayer + " " + index);
+                }).start();
+
+                JOptionPane.showMessageDialog(frame, "Resposta enviada. Aguardando resultado do Servidor...");
+            });
+
+            optionsPanel.add(botao);
+        }
+
+        if (timerThread != null && timerThread.isAlive()) {
+            timerThread.interrupt(); 
+        }
+        timerThread = new Thread(() -> {
+            while (isQuestionActive && currentRemainingTime > 0) {
+                try {
+                    Thread.sleep(1000); 
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+
+                currentRemainingTime--;
+
+                SwingUtilities.invokeLater(() ->
+                        timerLabel.setText(String.valueOf(currentRemainingTime))
+                );
+            }
+
+            if (isQuestionActive && !hasResponded) {
+                isQuestionActive = false;
+                SwingUtilities.invokeLater(() -> {
+                    JOptionPane.showMessageDialog(frame, "Tempo esgotado! Resposta não enviada.");
+                    // Envia resposta nula (ou -1) ao Servidor
+                    new Thread(() -> out.println("RESPONSE " + currentGameCode + " " + currentPlayer + " -1")).start();
+                });
+            }
+        });
+
+        timerThread.start();
+
+        frame.revalidate();
+        frame.repaint();
+    }
+    
+
     private JTextField criarCampoComPlaceholder(String texto) {
         JTextField campo = new JTextField(texto, JTextField.CENTER);
         campo.setFont(new Font("SansSerif", Font.PLAIN, 18));
@@ -114,143 +345,22 @@ public class QuizApp {
         return campo;
     }
 
-   
     private boolean isIntField(JTextField field) {
         String text = field.getText().trim();
-        if(text.isEmpty() || text.equals("Game PIN") || text.equals("Team PIN") || text.equals("Player ID"))
-            return false;
-        try { 
-            Integer.parseInt(text); 
-            return true; 
-        } catch(NumberFormatException e) { 
-            return false; 
-        }
+        if(text.isEmpty() || text.matches(".*PIN") || text.matches(".*ID")) return false;
+        try { Integer.parseInt(text); return true; } 
+        catch(NumberFormatException e) { return false; }
     }
-
-   
-    private void showQuestion(Pergunta pergunta) {
-        frame.getContentPane().removeAll();
-        frame.setLayout(new BorderLayout());
-        frame.getContentPane().setBackground(new Color(237,237,237));
-
-        isQuestionActive = true;
-        hasResponded = false;
-        currentRemainingTime = answerTime;
-
-        JPanel topPanel = new JPanel(new BorderLayout());
-        topPanel.setOpaque(false);
-
-        timerLabel = new JLabel(String.valueOf(answerTime), JLabel.CENTER);
-        timerLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
-        timerLabel.setForeground(Color.BLACK);
-        timerLabel.setPreferredSize(new Dimension(50,50));
-
-        JPanel timerPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        timerPanel.setOpaque(false);
-        timerPanel.add(timerLabel);
-        topPanel.add(timerPanel, BorderLayout.EAST);
-
-        String roundText = "     "
-                + (gamestate.getCurrentQuestionIndex() + 1)
-                + "/"
-                + gamestate.getQuestionts().size();
-
-        roundLabel = new JLabel(roundText);
-        roundLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
-        roundLabel.setForeground(Color.BLACK);
-        topPanel.add(roundLabel, BorderLayout.WEST);
-
-        JLabel questionLabel = new JLabel(
-                "<html><body style='text-align:center;width:400px;'>"
-                        + pergunta.getQuestion()
-                        + "</body></html>",
-                JLabel.CENTER
-        );
-        questionLabel.setFont(new Font("SansSerif", Font.BOLD, 24));
-        topPanel.add(questionLabel, BorderLayout.CENTER);
-
-        frame.add(topPanel, BorderLayout.NORTH);
-
-        JPanel optionsPanel = new JPanel(new GridLayout(2, 2, 10, 10));
-        optionsPanel.setBackground(new Color(237,237,237));
-        frame.add(optionsPanel, BorderLayout.CENTER);
-
-        String[] opcoes = pergunta.getOptions();
-        Cores[] coresEnum = Cores.values();
-
-        for (int i = 0; i < opcoes.length; i++) {
-            String textoBotao = "<html><body style='text-align:center;width:200px;'>"
-                    + opcoes[i]
-                    + "</body></html>";
-
-            JButton botao = new JButton(textoBotao);
-            botao.setBackground(coresEnum[i % coresEnum.length].getColor());
-            botao.setForeground(Color.WHITE);
-            botao.setFont(new Font("SansSerif", Font.BOLD, 18));
-
-            int index = i;
-            botao.addActionListener(e -> {
-                if (!isQuestionActive || hasResponded) return;
-                hasResponded = true;
-                isQuestionActive = false;
-
-                gamestate.registerResponse(currentPlayer, index);
-
-                if (index == pergunta.getCorrect()) {
-                    gamestate.addPointsToPlayer(currentPlayer, pergunta.getPoints());
-                    JOptionPane.showMessageDialog(frame,
-                            "Correto! +" + pergunta.getPoints() + " pontos.");
-                } else {
-                    JOptionPane.showMessageDialog(frame,
-                            "Errado! Resposta certa: " + opcoes[pergunta.getCorrect()]);
-                }
-
-                gamestate.nextQuestion();
-                nextQuestionOrEnd();
-            });
-
-            optionsPanel.add(botao);
-        }
-
-        // timmer
-        timerThread = new Thread(() -> {
-            while (isQuestionActive && currentRemainingTime > 0) {
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException ignored) {}
-
-                currentRemainingTime--;
-
-                SwingUtilities.invokeLater(() ->
-                        timerLabel.setText(String.valueOf(currentRemainingTime))
-                );
-            }
-
-            if (isQuestionActive && !hasResponded) {
-                isQuestionActive = false;
-                SwingUtilities.invokeLater(() -> {
-                    JOptionPane.showMessageDialog(frame, "Tempo esgotado!");
-                    gamestate.registerResponse(currentPlayer, null);
-                    gamestate.nextQuestion();
-                    nextQuestionOrEnd();
-                });
-            }
-        });
-
-        timerThread.start();
-
-        frame.revalidate();
-        frame.repaint();
-    }
-
-
     
-    private void nextQuestionOrEnd(){
-        if(gamestate.hasMoreQuestions()){
-            showQuestion(gamestate.getCurrentQuestion());
-        } else {
-            JOptionPane.showMessageDialog(frame,"Fim do quiz!");
-            frame.dispose();
-        }
+    private boolean isHostPort(JTextField field) {
+        String text = field.getText().trim();
+        if(text.isEmpty() || text.contains("Host:Port")) return false;
+        
+        String[] parts = text.split(":");
+        if (parts.length != 2) return false;
+        try { Integer.parseInt(parts[1]); return true; } 
+        catch(NumberFormatException e) { return false; }
     }
+
+
 }

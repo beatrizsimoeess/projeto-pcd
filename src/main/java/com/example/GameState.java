@@ -3,14 +3,14 @@ package com.example;
 import java.util.*;
 
 
-public class Gamestate {
+public class GameState {
 
     // 1- info
 
     private final String gameCode;          
     private List<Pergunta> questions;      
     private int currentQuestionIndex = 0;  
-    private List<DealWithClient> clientThreads;   
+    private List<DealWithClient> clientThreads; 
 
     private int totalTeams;               
     private int playersPerTeam;           
@@ -44,13 +44,13 @@ public class Gamestate {
     public List<Pergunta> getQuestionts() {return questions;}
     
 
-    public Gamestate(String gameCode, List<Pergunta> questions, int totalTeams, int playersPerTeam) {
+    public GameState(String gameCode, List<Pergunta> questions, int totalTeams, int playersPerTeam) {
         this.gameCode = gameCode;
         this.questions = new ArrayList<>(questions);
         this.totalQuestions = questions.size();
         this.totalTeams = totalTeams;
         this.playersPerTeam = playersPerTeam;
-        this.clientThreads = new ArrayList<>();
+        this.clientThreads = new ArrayList<>(); 
         this.currentQuestionIndex = 0;
         this.currentQuestionType = QuestionType.INDIVIDUAL; 
         
@@ -65,6 +65,10 @@ public class Gamestate {
         this.teamBarrier = null;
     }
 
+    public synchronized int getClientThreadsCount() {
+        return clientThreads.size();
+    }
+    
  
     public synchronized void registerClient(DealWithClient jogador) {
         clientThreads.add(jogador);
@@ -150,7 +154,6 @@ public class Gamestate {
         this.individualLatch = new ModifiedCountDownLatch(totalPlayers, timeoutMillis);
     }
  
-    //COLOCAR NO SERVIDOR
     public synchronized void stopAllClients() {
         for (DealWithClient client : clientThreads) {
             client.interrupt();
