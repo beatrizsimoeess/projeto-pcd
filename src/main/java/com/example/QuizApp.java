@@ -56,7 +56,6 @@ public class QuizApp {
         inputPanel.setBackground(new Color(91,72,181));
         inputPanel.setBorder(BorderFactory.createEmptyBorder(0,100,0,100));
 
-        JTextField hostField = criarCampoComPlaceholder("Host:Port (ex: 127.0.0.1:8080)");
         JTextField gameField = criarCampoComPlaceholder("Game PIN");
         JTextField teamField = criarCampoComPlaceholder("Team PIN");
         JTextField playerField = criarCampoComPlaceholder("Player ID");
@@ -68,26 +67,20 @@ public class QuizApp {
         enterBtn.setEnabled(false); 
 
         Runnable verificarCampos = () -> {
-            boolean habilitar = isHostPort(hostField) && isIntField(gameField) && isIntField(teamField) && isIntField(playerField);
+            boolean habilitar =  isIntField(gameField) && isIntField(teamField) && isIntField(playerField);
             enterBtn.setEnabled(habilitar);
         };
 
-        hostField.getDocument().addDocumentListener(new SimpleDocumentListener(verificarCampos));
         gameField.getDocument().addDocumentListener(new SimpleDocumentListener(verificarCampos));
         teamField.getDocument().addDocumentListener(new SimpleDocumentListener(verificarCampos));
         playerField.getDocument().addDocumentListener(new SimpleDocumentListener(verificarCampos));
 
         enterBtn.addActionListener(e -> {
-            String hostPort = hostField.getText().trim();
             String game = gameField.getText().trim();
             String team = teamField.getText().trim();
             String player = playerField.getText().trim();
             
-            String[] parts = hostPort.split(":");
-            if (parts.length != 2) {
-                JOptionPane.showMessageDialog(frame, "Formato do Host inválido. Use Host:Port.");
-                return;
-            }
+          
             
             int port;
             try {
@@ -97,10 +90,9 @@ public class QuizApp {
                 return;
             }
 
-            new Thread(() -> connectAndRegister(parts[0], port, game, team, player)).start();
+            new Thread(() -> connectAndRegister( game, team, player)).start();
         });
 
-        inputPanel.add(hostField);
         inputPanel.add(gameField);
         inputPanel.add(teamField);
         inputPanel.add(playerField);
