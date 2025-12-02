@@ -22,6 +22,7 @@ public class Servidor {
         this.jogosAtivos = new Hashmap<>();
         this.jogadoresGlobais = new Hashmap<>();
     }
+    //exemplo
     
     public static void main(String[] args) {
         if (args.length != 1) {
