@@ -80,17 +80,18 @@ public class QuizApp {
             String team = teamField.getText().trim();
             String player = playerField.getText().trim();
             
-          
-            
-            int port;
-            try {
-                port = Integer.parseInt(parts[1]);
-            } catch (NumberFormatException ex) {
-                JOptionPane.showMessageDialog(frame, "Porta inválida.");
-                return;
-            }
+        
+            String host = "localhost";
+            int port = 12345;
+            //int port;
+            //try {
+              //  port = Integer.parseInt(parts[1]);
+            //} catch (NumberFormatException ex) {
+              //  JOptionPane.showMessageDialog(frame, "Porta inválida.");
+                //return;
+            //}
 
-            new Thread(() -> connectAndRegister( game, team, player)).start();
+            new Thread(() -> connectAndRegister( host, port, game, team, player)).start();
         });
 
         inputPanel.add(gameField);
@@ -146,6 +147,9 @@ public class QuizApp {
     }
 
     private void processServerMessage(String message) {
+        // Proteção contra mensagens vazias
+        if (message == null || message.trim().isEmpty()) return;
+
         String[] parts = message.split(" ", 2);
         String command = parts[0].toUpperCase();
         String payload = parts.length > 1 ? parts[1] : "";
@@ -153,48 +157,63 @@ public class QuizApp {
         SwingUtilities.invokeLater(() -> {
             switch (command) {
                 case "SUCCESS":
-                    JOptionPane.showMessageDialog(frame, "Registo bem-sucedido. Aguardando início do jogo.");
+                    JOptionPane.showMessageDialog(frame, "Registo com sucesso! Aguarda o início.");
                     break;
                 case "ERROR":
-                    JOptionPane.showMessageDialog(frame, "Erro do Servidor: " + payload, "Erro de Registo", JOptionPane.ERROR_MESSAGE);
-                    closeConnection();
-                    showHomePage();
+                    JOptionPane.showMessageDialog(frame, payload, "Erro", JOptionPane.ERROR_MESSAGE);
                     break;
                 case "QUESTION":
-                 
-                    String[] questionParts = payload.split(" ", 2);
-                    String questionText = questionParts[0].replace("_", " ");
-                    String[] options = questionParts[1].split(";");
+                    // Parse robusto da pergunta
+                    try {
+                    // Dividir em 3 partes: Indice, Total, Resto
+                    String[] firstSplit = payload.split(" ", 3);
                     
-                   
-                    Pergunta pergunta = new Pergunta();
-                    showQuestion(pergunta);
+                    String roundNow = firstSplit[0];
+                    String roundTotal = firstSplit[1];
+                    String content = firstSplit[2];
+
+                    // Dividir o resto em Texto e Opções
+                    String[] contentParts = content.split(" ", 2);
+                    String questionText = contentParts[0].replace("_", " ");
+                    String[] options = contentParts[1].split(";");
+
+                    Pergunta p = new Pergunta();
+                    p.setQuestion(questionText);
+                    p.setOptions(options);
+
+                    showQuestion(p, roundNow, roundTotal);
+                    
+                    } catch (Exception e) {
+                        System.err.println("Erro ao mostrar pergunta: " + e.getMessage());
+                    }
                     break;
 
                 case "TIMER":
                     try {
                         currentRemainingTime = Integer.parseInt(payload);
-                        timerLabel.setText(String.valueOf(currentRemainingTime));
+                        if (timerLabel != null) timerLabel.setText(String.valueOf(currentRemainingTime));
                     } catch (NumberFormatException ignored) {}
                     break;
 
                 case "RESULT":
+                    // CORREÇÃO: Só mostra popup se for feedback de resposta (CORRETO/ERRADO)
+                    // Ignora mensagens de sistema como "Ronda_Terminada"
                     if (payload.startsWith("CORRETO")) {
-                        JOptionPane.showMessageDialog(frame, "Correto! " + payload.split(" ")[1] + " pontos.");
-                    } else {
-                         JOptionPane.showMessageDialog(frame, "Errado! " + payload); 
+                        JOptionPane.showMessageDialog(frame, "Certo! " + payload);
+                    } else if (payload.startsWith("ERRADO")) {
+                        JOptionPane.showMessageDialog(frame, "Errado! " + payload); 
                     }
+                    // Se for "Ronda_Terminada", não fazemos nada (o LEADERBOARD vem a seguir)
                     break;
                     
                 case "LEADERBOARD":
-                     JOptionPane.showMessageDialog(frame, "Classificação:\n" + payload);
-                     break;
+                    JOptionPane.showMessageDialog(frame, "Fim da Ronda!\n\n" + payload.replace(";", "\n"));
+                    break;
 
                 case "END_GAME":
-                     JOptionPane.showMessageDialog(frame, "Fim do quiz! Classificação final: [Verifique a mensagem LEADERBOARD]", "Fim do Jogo", JOptionPane.INFORMATION_MESSAGE);
-                     closeConnection();
-                     showHomePage();
-                     break;
+                    JOptionPane.showMessageDialog(frame, "Jogo Terminado!");
+                    closeConnection();
+                    break;
             }
         });
     }
@@ -207,7 +226,7 @@ public class QuizApp {
         } catch (IOException ignored) {}
     }
     
-    private void showQuestion(Pergunta pergunta) {
+    private void showQuestion(Pergunta pergunta, String roundNow, String roundTotal) {
         frame.getContentPane().removeAll();
         frame.setLayout(new BorderLayout());
         frame.getContentPane().setBackground(new Color(237,237,237));
@@ -229,7 +248,7 @@ public class QuizApp {
         timerPanel.add(timerLabel);
         topPanel.add(timerPanel, BorderLayout.EAST);
 
-        roundLabel = new JLabel("      Rodada: Aguardando...");
+        roundLabel = new JLabel("Rodada " + roundNow + " / " + roundTotal);
         roundLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
         roundLabel.setForeground(Color.BLACK);
         topPanel.add(roundLabel, BorderLayout.WEST);

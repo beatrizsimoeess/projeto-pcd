@@ -12,6 +12,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class Servidor {
 
     private static final String QUESTION_FILE_PATH = "src/main/resources/quizzes.json";
+    private static final int DEFAULT_PORT = 12345;
+
     private final map<String, GameState> jogosAtivos;
     private final map<String, String> jogadoresGlobais;
     private final AtomicInteger codigoJogoCounter = new AtomicInteger(1000); 
@@ -25,22 +27,11 @@ public class Servidor {
     //exemplo
     
     public static void main(String[] args) {
-        if (args.length != 1) {
-             System.err.println("Uso: java Servidor <PORTA>");
-             return;
-        }
-        int porta;
-        try {
-            porta = Integer.parseInt(args[0]);
-        } catch (NumberFormatException e) {
-            System.err.println("Erro: A porta deve ser um número válido.");
-            return;
-        }
-
+        // Requisito 3.1: Servidor lançado sem argumentos
         Servidor servidor = new Servidor();
-        servidor.iniciarServidor(porta);
+        servidor.iniciarServidor(DEFAULT_PORT);
     }
-  
+
     public void iniciarServidor(int porta) {
         new Thread(this::tuiLoop, "TUI-Thread").start();
         
@@ -50,61 +41,47 @@ public class Servidor {
             
             while (running) { 
                 Socket clientSocket = serverSocket.accept();
-                System.out.println("Cliente conectado: " + clientSocket.getInetAddress());
-                
+                // Cria a thread para lidar com este cliente
                 new DealWithClient(clientSocket, this).start();
             }
         } catch (IOException e) {
             if (running) {
-                System.err.println("Erro ao iniciar/executar o Servidor: " + e.getMessage());
-            } else {
-                System.out.println("Servidor encerrado com sucesso.");
+                System.err.println("Erro no Servidor: " + e.getMessage());
             }
-        } finally {
-            System.exit(0);
         }
     }
     
     private void tuiLoop() {
         Scanner scanner = new Scanner(System.in);
-        System.out.println("TUI: Insira comandos (ex: new <equipas> <jogadores> <perguntas> ou list)");
+        System.out.println("TUI: Comandos disponíveis:");
+        System.out.println("  new <nEquipas> <nJogadoresPorEquipa> <nPerguntas>");
+        System.out.println("  list");
+        System.out.println("  exit");
         
-        while (true) {
+        while (running && scanner.hasNextLine()) {
             System.out.print("> ");
             String comando = scanner.nextLine().trim();
             if (comando.toLowerCase().startsWith("new")) {
                 processarComandoNew(comando);
-            } else if (comando.toLowerCase().equals("list")) {
+            } else if (comando.equalsIgnoreCase("list")) {
                 listarJogosAtivos();
-            } else if (comando.toLowerCase().equals("exit")) {
+            } else if (comando.equalsIgnoreCase("exit")) {
                 encerrarServidor();
                 break;
-            } else {
-                System.out.println("Comando desconhecido.");
             }
         }
-        scanner.close();
     }
     
     public void encerrarServidor() {
-        this.running = false;
-        System.out.println("Sinal de encerramento recebido. A fechar ServerSocket e recursos...");
-        try {
-            if (serverSocket != null) {
-                serverSocket.close(); 
-            }
-            for (Map.Entry<String, GameState> entry : jogosAtivos.entrySet()) {
-                entry.getValue().stopAllClients(); 
-            }
-        } catch (IOException e) {
-            System.err.println("Erro ao fechar o ServerSocket: " + e.getMessage());
-        }
+        running = false;
+        try { if (serverSocket != null) serverSocket.close(); } catch (IOException e) {}
+        System.out.println("Servidor encerrado.");
     }
     
     private void processarComandoNew(String comando) {
         String[] partes = comando.split("\\s+");
         if (partes.length != 4) {
-            System.err.println("Uso: new <num equipas> <num jogadores por equipa> <num perguntas>");
+            System.err.println("Uso: new <nEquipas> <nJogadores> <nPerguntas>");
             return;
         }
         try {
@@ -115,63 +92,49 @@ public class Servidor {
             String gameCode = String.valueOf(codigoJogoCounter.getAndIncrement());
             
             List<Pergunta> perguntas = Pergunta.readAllFromFile(QUESTION_FILE_PATH); 
-            
-            if (perguntas == null || perguntas.isEmpty()) {
-                System.err.println("Erro: Não foi possível carregar as perguntas. (Verifique 'Pergunta.java')");
+            if (perguntas == null) {
+                System.err.println("Erro ao ler perguntas. Verifique o ficheiro json.");
                 return;
             }
-            if (numPerguntas > perguntas.size()) { numPerguntas = perguntas.size(); }
+            
             Collections.shuffle(perguntas);
-            perguntas = perguntas.subList(0, numPerguntas);
+            if (numPerguntas < perguntas.size()) {
+                perguntas = perguntas.subList(0, numPerguntas);
+            }
 
             GameState novoJogo = new GameState(gameCode, perguntas, numEquipas, jogadoresPorEquipa);
             jogosAtivos.put(gameCode, novoJogo);
             
-            System.out.println(" Novo jogo criado! Código: " + gameCode + " .");
-        } catch (NumberFormatException e) {
-            System.err.println("Argumentos inválidos. Certifique-se de que são números inteiros.");
+            System.out.println("Jogo criado! Código: " + gameCode);
+        } catch (Exception e) {
+            System.err.println("Erro ao criar jogo: " + e.getMessage());
         }
     }
 
     private void listarJogosAtivos() {
-        if (jogosAtivos.isEmpty()) {
-            System.out.println("Nenhum jogo ativo.");
-            return;
-        }
-        System.out.println("--- Jogos Ativos ---");
-        
-        for (Map.Entry<String, GameState> entry : jogosAtivos.entrySet()) {
-            String code = entry.getKey();
-            GameState game = entry.getValue();
-            
-            int expected = game.getTotalTeams() * game.getPlayersPerTeam();
-            int currentPlayers = game.getClientThreadsCount(); 
-            
-            System.out.println("Código: " + code + 
-                               ", Jogadores: " + currentPlayers + "/" + expected +
-                               ", Pergunta Atual: " + (game.getCurrentQuestionIndex() + 1) + "/" + game.getTotalQuestions());
-        }
-        System.out.println("--------------------");
+        System.out.println("Jogos Ativos: " + jogosAtivos.entrySet().size());
+        // Podes expandir para mostrar detalhes
     }
     
-    public GameState registarJogador(String gameCode, String teamName, String username, DealWithClient clientThread) {
+    public synchronized GameState registarJogador(String gameCode, String teamName, String username, DealWithClient clientThread) {
+        // 1. Verifica se Username é único globalmente 
         if (jogadoresGlobais.get(username) != null) {
-            System.err.println("Falha de registo: Username '" + username + "' já em uso.");
+            System.err.println("Registo falhou: Username '" + username + "' já existe.");
             return null;
         }
 
+        // 2. Verifica se Jogo existe 
         GameState jogo = jogosAtivos.get(gameCode);
-
         if (jogo == null) {
-            System.err.println("Falha de registo: Jogo " + gameCode + " não existe.");
+            System.err.println("Registo falhou: Jogo " + gameCode + " não existe.");
             return null;
         }
 
+        // 3. Verifica limites e regista no GameState
         synchronized (jogo) {
-            int totalExpectedPlayers = jogo.getTotalTeams() * jogo.getPlayersPerTeam();
-            
-            if (jogo.getClientThreadsCount() >= totalExpectedPlayers) {
-                System.err.println("Falha de registo: Jogo " + gameCode + " já está cheio.");
+            int totalExpected = jogo.getTotalTeams() * jogo.getPlayersPerTeam();
+            if (jogo.getClientThreadsCount() >= totalExpected) {
+                System.err.println("Registo falhou: Jogo cheio.");
                 return null;
             }
 
@@ -179,49 +142,62 @@ public class Servidor {
             jogo.assignPlayerToTeam(username, teamName);
             jogadoresGlobais.put(username, gameCode);
             
-            System.out.println("Jogador " + username + " registado no Jogo " + gameCode);
-            
-            if (jogo.getClientThreadsCount() == totalExpectedPlayers) {
-                System.out.println("Todos os jogadores ligados. O jogo vai começar!");
-                new Thread(() -> iniciarCicloJogo(jogo), "Game-" + gameCode + "-Thread").start();
+            System.out.println("Jogador " + username + " entrou no Jogo " + gameCode);
+
+            // Se encheu, inicia o jogo numa nova thread
+            if (jogo.getClientThreadsCount() == totalExpected) {
+                System.out.println("Sala cheia! A iniciar jogo " + gameCode + "...");
+                new Thread(() -> iniciarCicloJogo(jogo)).start();
             }
-            
             return jogo;
         }
     }
 
     public void iniciarCicloJogo(GameState jogo) {
+        System.out.println(">>> INICIO DO JOGO " + jogo.getGameCode() + " <<<");
         
         while (jogo.hasMoreQuestions()) {
-             try {
-                 System.out.println("Jogo " + jogo.getGameCode() + " | A aguardar respostas por 30 segundos...");
-                 Thread.sleep(30000); 
-             } catch (InterruptedException ignored) {
-                 Thread.currentThread().interrupt();
-                 break;
-             }
-             
-             jogo.nextQuestion();
+            // 1. Preparar a Ronda (Define Tipo e Cria Latch/Barreira)
+            jogo.prepareNextRound(); 
+            
+            // Dados para enviar
+            Pergunta p = jogo.getCurrentQuestion();
+            int atual = jogo.getCurrentQuestionIndex() + 1;
+            int total = jogo.getTotalQuestions();
+            String tipo = jogo.getCurrentType().toString();
+
+            System.out.println("Pergunta " + tipo + ": " + p.getQuestion());
+
+            // 2. Enviar Pergunta
+            String msg = "QUESTION " + atual + " " + total + " " + 
+                        p.getQuestion().replace(" ", "_") + " " + 
+                        String.join(";", p.getOptions());
+            jogo.broadcast(msg);
+            jogo.broadcast("TIMER 30");
+
+            // 3. O SERVIDOR ESPERA AQUI
+            // Este método bloqueia até TODOS responderem OU passarem 30s.
+            System.out.println("... Aguardando respostas ...");
+            jogo.waitForAllResponses(); 
+
+            // 4. Se for Equipa, calcula agora (porque o wait acabou)
+            if (jogo.getCurrentType() == GameState.QuestionType.TEAM) {
+                jogo.calculateTeamPoints();
+            }
+
+            // 5. Enviar Resultados (Instantâneo se jogares sozinho)
+            System.out.println("Ronda terminada. A enviar resultados.");
+            jogo.broadcast("LEADERBOARD " + jogo.getLeaderboard());
+            
+            // Pausa de 5s para leres o placar
+            try { Thread.sleep(5000); } catch (InterruptedException e) {}
+            
+            // Avança índice
+            jogo.nextQuestion();
         }
         
-        System.out.println("🏁 Jogo " + jogo.getGameCode() + " terminado! A fechar conexões.");
-        jogo.stopAllClients(); 
-        jogosAtivos.remove(jogo.getGameCode());
-        
-        for (Map.Entry<String, String> entry : jogadoresGlobais.entrySet()) {
-             if (entry.getValue().equals(jogo.getGameCode())) {
-                 jogadoresGlobais.remove(entry.getKey());
-             }
-        }
+        jogo.broadcast("END_GAME");
+        System.out.println("Jogo encerrado.");
     }
-    
-     // Lógica de pontuação para perguntas individuais MOCK
-    public int calcularBonusIndividual(GameState jogo, String username, int resposta) {
-        return 0; 
-    }
-    
-     //Lógica de pontuação para perguntas de equopa MOCK.
-    public void calcularPontuacaoEquipa(GameState jogo) {
-        // ...
-    }
+
 }

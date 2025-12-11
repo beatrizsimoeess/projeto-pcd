@@ -22,53 +22,47 @@ public class DealWithClient extends Thread {
         this.servidor = servidor;
 	}
 	
-   
+
 	private void doConnection() throws IOException {
         this.in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
         // 'true' ativa o autoFlush, enviando a mensagem imediatamente.
         this.out = new PrintWriter(socket.getOutputStream(), true); 
 	}
- 
+
 	@Override
 	public void run() {
         try {
-            doConnection();
+            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            out = new PrintWriter(socket.getOutputStream(), true);
             
-            out.println("Bem-vindo! Por favor, preencha o registo REGISTO <Codigo> <Equipa> <Username>");
-            String clientMessage = in.readLine();
-            
-            if (clientMessage != null && clientMessage.startsWith("REGISTO")) {
-                processarRegisto(clientMessage);
+            // 1. Espera pela mensagem de REGISTO
+            String request = in.readLine();
+            if (request != null && request.startsWith("REGISTER")) {
+                processarRegisto(request);
+            } else {
+                out.println("ERROR Comando inesperado. Esperado: REGISTER ...");
+                return; // Encerra se não começar com registo
             }
-            
-            if (jogoAtual == null) {
-                out.println("FALHA: Registo inválido ou falhou. A fechar conexão.");
-                return;
-            }
-            
-            out.println("SUCESSO: Registado no Jogo " + jogoAtual.getGameCode());
-            System.out.println("Cliente '" + username + "' registado e à espera do início do jogo.");
 
-            while (!socket.isClosed() && !isInterrupted()) {
-                
-                String input = in.readLine();
-                if (input == null) break; 
-                
-                if (input.startsWith("RESPOSTA")) {
-                    //  Lógica para processar a resposta, interagir com Latch/Barrier
+            // 2. Loop principal de escuta (ficará ativo durante o jogo)
+            while (true) {
+                String msg = in.readLine();
+                if (msg == null) break; // Conexão fechada
+
+                // Na Fase 4 ainda não processamos respostas, mas a estrutura fica pronta
+                if (msg.startsWith("RESPONSE")) {
+                    // Futuro: processar resposta
+                    System.out.println("Resposta recebida de " + username + ": " + msg);
                 }
-                
-                
             }
-
         } catch (IOException e) {
-            System.out.println("Cliente " + (username != null ? username : "desconhecido") + " desconectado.");
+            System.out.println("Conexão perdida com " + username);
         } finally {
-            fecharConexao();
+            try { socket.close(); } catch (IOException e) {}
         }
-	}
+    }
 
-   
+
     private void processarRegisto(String message) {
         String[] partes = message.split("\\s+");
         if (partes.length == 4) {
@@ -82,21 +76,12 @@ public class DealWithClient extends Thread {
         }
     }
     
-   
+
     public void sendMessage(String message) {
         if (out != null) {
             out.println(message);
         }
     }
 
-   
-    private void fecharConexao() {
-        try {
-            if (in != null) in.close();
-            if (out != null) out.close();
-            if (socket != null && !socket.isClosed()) socket.close();
-        } catch (IOException e) {
-            System.err.println("Erro ao fechar conexão.");
-        }
-    }
+
 }
