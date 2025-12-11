@@ -175,22 +175,23 @@ public class Servidor {
             jogo.broadcast(msg);
             jogo.broadcast("TIMER 30");
 
-            // 3. O SERVIDOR ESPERA AQUI
+         // 3. O SERVIDOR ESPERA AQUI
             // Este método bloqueia até TODOS responderem OU passarem 30s.
             System.out.println("... Aguardando respostas ...");
             jogo.waitForAllResponses(); 
 
             // 4. Se for Equipa, calcula agora (porque o wait acabou)
+            // REMOVIDO: A ModifiedBarrier já chama calculateTeamPoints() no timeout/fim da barreira.
+            /*
             if (jogo.getCurrentType() == GameState.QuestionType.TEAM) {
-                jogo.calculateTeamPoints();
+                jogo.calculateTeamPoints(); 
             }
-
+            */
             // 5. Enviar Resultados (Instantâneo se jogares sozinho)
-            System.out.println("Ronda terminada. A enviar resultados.");
-            jogo.broadcast("LEADERBOARD " + jogo.getLeaderboard());
-            
-            // Pausa de 5s para leres o placar
-            try { Thread.sleep(5000); } catch (InterruptedException e) {}
+            String leaderboard = jogo.getLeaderboard();
+            jogo.broadcast("RESULT Ronda_Terminada");
+            jogo.broadcast("LEADERBOARD " + leaderboard.replace(";  ", ";"));
+            System.out.println("PLACAR: " + leaderboard);
             
             // Avança índice
             jogo.nextQuestion();

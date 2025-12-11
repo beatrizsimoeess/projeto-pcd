@@ -116,8 +116,6 @@ public class QuizApp {
             clientListenerThread = new Thread(this::listenToServer);
             clientListenerThread.start();
             
-            SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(frame, 
-                "Conectado. Aguardando resposta do Servidor...", "Sucesso", JOptionPane.INFORMATION_MESSAGE));
 
         } catch (IOException e) {
             SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(frame, 
@@ -180,7 +178,7 @@ public class QuizApp {
                     Pergunta p = new Pergunta();
                     p.setQuestion(questionText);
                     p.setOptions(options);
-
+                    hasResponded = false; // Garante que a GUI pode ser ativada
                     showQuestion(p, roundNow, roundTotal);
                     
                     } catch (Exception e) {
@@ -208,8 +206,9 @@ public class QuizApp {
                     
                 case "LEADERBOARD":
                     JOptionPane.showMessageDialog(frame, "Fim da Ronda!\n\n" + payload.replace(";", "\n"));
-                    break;
-
+                   
+hasResponded = false;
+break;
                 case "END_GAME":
                     JOptionPane.showMessageDialog(frame, "Jogo Terminado!");
                     closeConnection();

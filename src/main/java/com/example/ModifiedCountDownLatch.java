@@ -23,9 +23,7 @@ public class ModifiedCountDownLatch {
             bonusCount--;
         }
         
-        if (count <= 0) {
-            notifyAll(); // Acorda o Servidor
-        }
+    
         return currentFactor;
     }
 
