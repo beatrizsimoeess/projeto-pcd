@@ -102,12 +102,13 @@ public class GameState {
             individualLatch = new ModifiedCountDownLatch(2, 2, waitTime, totalPlayers);
             teamBarrier = null;
         } else {
-            // Barreira Global para equipas
-            // Se atingir a Barreira ou o Timeout, executa calculateTeamPoints
-            teamBarrier = new ModifiedBarrier(totalPlayers, waitTime, () -> {
-                System.out.println("DEBUG BARRIER: Barreira atingida (ou timeout). A calcular pontos de equipa.");
-                calculateTeamPoints(); 
-            });
+        	teamBarrier = new ModifiedBarrier(totalPlayers, waitTime, () -> {
+        	    // CORREÇÃO: Adicionar verificação do estado para evitar corrida de dados
+        	    if (currentQuestionType == QuestionType.TEAM) { // Verificação redundante mas segura
+        	        System.out.println("DEBUG BARRIER: Barreira atingida (ou timeout). A calcular pontos de equipa.");
+        	        calculateTeamPoints(); 
+        	    }
+        	});
             individualLatch = null;
         }
     }
@@ -179,25 +180,33 @@ public class GameState {
  // GameState.java
 
     public synchronized void waitForAllResponses() {
-        long startTime = System.currentTimeMillis();
-        long timeout = 30000; 
-        
-        // Fica preso aqui enquanto a ronda não acabar E houver tempo
-        while (!roundFinished && (System.currentTimeMillis() - startTime < timeout)) {
-            try {
-                long timeLeft = timeout - (System.currentTimeMillis() - startTime);
-                if (timeLeft > 0) wait(timeLeft); // Espera pelo notifyAll() no registerResponse
-                else break;
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+        long start = System.currentTimeMillis();
+        long timeout = 30000;
+
+        while (!roundFinished) {
+            long elapsed = System.currentTimeMillis() - start;
+            long remaining = timeout - elapsed;
+
+            if (remaining <= 0) {
+                // Timeout real
+                roundFinished = true;
+                System.out.println("DEBUG TIMEOUT: Ronda concluída por timeout.");
                 break;
+            }
+
+            try {
+                wait(remaining);
+            } catch (InterruptedException e) {
+                // CORREÇÃO: Quando ocorre uma interrupção (e.g., por notifyAll()),
+                // garantimos que o estado de interrupção é restaurado.
+                Thread.currentThread().interrupt(); 
+                // O loop será reavaliado. Se roundFinished=true, saímos.
             }
         }
         
-        // REMOVIDO: Esta linha forçava o estado 'true' e criava race conditions.
-        // if (!roundFinished) this.roundFinished = true; 
-
-        System.out.println("DEBUG: Servidor parou de esperar (Tempo acabou ou todos responderam).");
+        // O roundFinished é agora definido dentro do while/if(remaining <= 0) ou no registerResponse
+        
+        System.out.println("DEBUG: Ronda terminou. roundFinished=" + roundFinished);
     }
     private synchronized void addPoints(String username, int points) {
         // 1. Total Jogador
