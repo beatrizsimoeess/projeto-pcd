@@ -24,7 +24,11 @@ public class QuizApp {
     private JLabel timerLabel;
     private JLabel roundLabel;
     
-    private final int answerTime= 30; 
+    // NOVO: Componentes para a UI de espera
+    private JLabel statusLabel;
+    private JButton[] optionButtons; // Guarda os botões de opção para poder desativá-los
+    
+    private final int answerTime = 30; 
     
     private Thread timerThread; 
     private volatile boolean isQuestionActive = false;
@@ -67,7 +71,7 @@ public class QuizApp {
         enterBtn.setEnabled(false); 
 
         Runnable verificarCampos = () -> {
-            boolean habilitar =  isIntField(gameField) && isIntField(teamField) && isIntField(playerField);
+            boolean habilitar = isIntField(gameField) && isIntField(teamField) && isIntField(playerField);
             enterBtn.setEnabled(habilitar);
         };
 
@@ -80,17 +84,10 @@ public class QuizApp {
             String team = teamField.getText().trim();
             String player = playerField.getText().trim();
             
-        
+            
             String host = "localhost";
             int port = 12345;
-            //int port;
-            //try {
-              //  port = Integer.parseInt(parts[1]);
-            //} catch (NumberFormatException ex) {
-              //  JOptionPane.showMessageDialog(frame, "Porta inválida.");
-                //return;
-            //}
-
+            
             new Thread(() -> connectAndRegister( host, port, game, team, player)).start();
         });
 
@@ -194,24 +191,29 @@ public class QuizApp {
                     break;
 
                 case "RESULT":
-                    // CORREÇÃO: Só mostra popup se for feedback de resposta (CORRETO/ERRADO)
-                    // Ignora mensagens de sistema como "Ronda_Terminada"
+                    // Só mostra popup se for feedback de resposta (CORRETO/ERRADO)
                     if (payload.startsWith("CORRETO")) {
-                        JOptionPane.showMessageDialog(frame, "Certo! " + payload);
+                        // Não bloquear a thread da GUI com JOptionPane
+                        if (statusLabel != null) statusLabel.setText("CORRETO! " + payload);
                     } else if (payload.startsWith("ERRADO")) {
-                        JOptionPane.showMessageDialog(frame, "Errado! " + payload); 
+                        // Não bloquear a thread da GUI com JOptionPane
+                        if (statusLabel != null) statusLabel.setText("ERRADO! " + payload); 
                     }
-                    // Se for "Ronda_Terminada", não fazemos nada (o LEADERBOARD vem a seguir)
                     break;
                     
                 case "LEADERBOARD":
                     JOptionPane.showMessageDialog(frame, "Fim da Ronda!\n\n" + payload.replace(";", "\n"));
-                   
-hasResponded = false;
-break;
+                    
+                    hasResponded = false;
+                    // CORREÇÃO: Limpar a mensagem de espera
+                    if (statusLabel != null) statusLabel.setText("");
+                    
+                    break;
                 case "END_GAME":
                     JOptionPane.showMessageDialog(frame, "Jogo Terminado!");
                     closeConnection();
+                    // CORREÇÃO: Limpar a mensagem de espera
+                    if (statusLabel != null) statusLabel.setText("");
                     break;
             }
         });
@@ -267,8 +269,16 @@ break;
         optionsPanel.setBackground(new Color(237,237,237));
         frame.add(optionsPanel, BorderLayout.CENTER);
 
+        // NOVO: Adiciona o statusLabel no Sul para mensagens não-bloqueantes
+        statusLabel = new JLabel("", JLabel.CENTER);
+        statusLabel.setFont(new Font("SansSerif", Font.ITALIC, 14));
+        frame.add(statusLabel, BorderLayout.SOUTH);
+
         String[] opcoes = pergunta.getOptions(); 
         Cores[] coresEnum = Cores.values();
+        
+        // NOVO: Inicializa o array de botões
+        optionButtons = new JButton[opcoes.length]; 
 
         for (int i = 0; i < opcoes.length; i++) {
             String textoBotao = "<html><body style='text-align:center;width:200px;'>"
@@ -279,24 +289,36 @@ break;
             botao.setBackground(coresEnum[i % coresEnum.length].getColor());
             botao.setForeground(Color.WHITE);
             botao.setFont(new Font("SansSerif", Font.BOLD, 18));
+            
+            // NOVO: Armazenar o botão
+            optionButtons[i] = botao;
 
             int index = i;
             botao.addActionListener(e -> {
                 if (!isQuestionActive || hasResponded) return;
                 
+                // 1. DESATIVAÇÃO DA LÓGICA DE TEMPO/ESTADO
                 hasResponded = true;
                 isQuestionActive = false;
                 
+                // 2. ENVIAR RESPOSTA
                 new Thread(() -> {
                     out.println("RESPONSE " + currentGameCode + " " + currentPlayer + " " + index);
                 }).start();
 
-                JOptionPane.showMessageDialog(frame, "Resposta enviada. Aguardando resultado do Servidor...");
+                // 3. CORREÇÃO CRÍTICA: Substituir o JOptionPane bloqueante
+                SwingUtilities.invokeLater(() -> {
+                    setOptionsEnabled(false); // Desativa os botões para evitar resposta dupla
+                    if (statusLabel != null) {
+                        statusLabel.setText("Resposta enviada. Aguardando resultado do Servidor...");
+                    }
+                });
             });
 
             optionsPanel.add(botao);
         }
 
+        // Interromper a thread anterior antes de iniciar uma nova
         if (timerThread != null && timerThread.isAlive()) {
             timerThread.interrupt(); 
         }
@@ -319,7 +341,9 @@ break;
             if (isQuestionActive && !hasResponded) {
                 isQuestionActive = false;
                 SwingUtilities.invokeLater(() -> {
-                    JOptionPane.showMessageDialog(frame, "Tempo esgotado! Resposta não enviada.");
+                    // Já não é JOptionPane bloqueante, mas é a thread principal
+                    if (statusLabel != null) statusLabel.setText("Tempo esgotado! Resposta não enviada.");
+                    setOptionsEnabled(false);
                     // Envia resposta nula (ou -1) ao Servidor
                     new Thread(() -> out.println("RESPONSE " + currentGameCode + " " + currentPlayer + " -1")).start();
                 });
@@ -330,6 +354,15 @@ break;
 
         frame.revalidate();
         frame.repaint();
+    }
+    
+    // NOVO MÉTODO: Controla o estado dos botões para a lógica de espera não-bloqueante
+    private void setOptionsEnabled(boolean enabled) {
+        if (optionButtons != null) {
+            for (JButton button : optionButtons) {
+                button.setEnabled(enabled);
+            }
+        }
     }
     
 

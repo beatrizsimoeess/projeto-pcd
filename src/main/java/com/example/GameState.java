@@ -179,34 +179,26 @@ public class GameState {
 
  // GameState.java
 
+ // GameState.java
+
     public synchronized void waitForAllResponses() {
-        long start = System.currentTimeMillis();
-        long timeout = 30000;
-
-        while (!roundFinished) {
-            long elapsed = System.currentTimeMillis() - start;
-            long remaining = timeout - elapsed;
-
-            if (remaining <= 0) {
-                // Timeout real
-                roundFinished = true;
-                System.out.println("DEBUG TIMEOUT: Ronda concluída por timeout.");
+        long startTime = System.currentTimeMillis();
+        long timeout = 30000; 
+        
+        // Fica preso aqui enquanto a ronda não acabar E houver tempo
+        while (!roundFinished && (System.currentTimeMillis() - startTime < timeout)) {
+            try {
+                long timeLeft = timeout - (System.currentTimeMillis() - startTime);
+                if (timeLeft > 0) wait(timeLeft); // Espera pelo notifyAll() no registerResponse
+                else break; // Se o tempo for zero ou negativo, sai do loop
+            } catch (InterruptedException e) {
+                // Se for interrompido (e.g., pelo notifyAll do registerResponse), 
+                // reavalia a condição do while e sai se roundFinished=true
+                Thread.currentThread().interrupt();
                 break;
             }
-
-            try {
-                wait(remaining);
-            } catch (InterruptedException e) {
-                // CORREÇÃO: Quando ocorre uma interrupção (e.g., por notifyAll()),
-                // garantimos que o estado de interrupção é restaurado.
-                Thread.currentThread().interrupt(); 
-                // O loop será reavaliado. Se roundFinished=true, saímos.
-            }
         }
-        
-        // O roundFinished é agora definido dentro do while/if(remaining <= 0) ou no registerResponse
-        
-        System.out.println("DEBUG: Ronda terminou. roundFinished=" + roundFinished);
+        System.out.println("DEBUG: Servidor parou de esperar (Tempo acabou ou todos responderam).");
     }
     private synchronized void addPoints(String username, int points) {
         // 1. Total Jogador
