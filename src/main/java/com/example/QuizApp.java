@@ -28,7 +28,6 @@ public class QuizApp {
     private JButton[] optionButtons; 
     
     private final int answerTime = 30; 
-    
     private Thread timerThread; 
     private volatile boolean isQuestionActive = false;
     private int currentRemainingTime;

@@ -30,6 +30,8 @@ public class GameState {
     private HashMap<String, Integer> playerResponses = new HashMap<>(); 
     private HashSet<String> respondedPlayers = new HashSet<>();       
 
+    private HashSet<String> respondedTeams = new HashSet<>();       
+
     private ModifiedCountDownLatch individualLatch;          
     private ModifiedBarrier teamBarrier;           
     
@@ -43,6 +45,7 @@ public class GameState {
         this.clientThreads = new ArrayList<>();
     }
 
+
     public String getGameCode() {return gameCode; }
     public int getTotalTeams() { return totalTeams; }
     public int getPlayersPerTeam() { return playersPerTeam; }
@@ -53,7 +56,7 @@ public class GameState {
         return clientThreads.size();
     }
 
-        public synchronized void nextQuestion() { currentQuestionIndex++; }
+    public synchronized void nextQuestion() { currentQuestionIndex++; }
     
     public synchronized void registerClient(DealWithClient client) {
         clientThreads.add(client);
@@ -91,12 +94,13 @@ public class GameState {
         respondedPlayers.clear();
         roundPoints.clear(); 
         
+        respondedTeams.clear();
+        
         int totalPlayers = clientThreads.size();
         int waitTime = 30000;
-        this.roundFinished = false; // Fica aqui
+        this.roundFinished = false; 
 
         if (currentQuestionType == QuestionType.INDIVIDUAL) {
-        // Latch: Bónus x2 para os primeiros 2 jogadores
             individualLatch = new ModifiedCountDownLatch(2, 2, waitTime, totalPlayers);
             teamBarrier = null;
         } else {
@@ -122,47 +126,78 @@ public class GameState {
         }
     }
 
-
     public boolean registerResponse(String username, Integer answer) {
-    	int factor = 1;
+        int factor = 1;
+        String team = playerToTeam.get(username);
+        
+        if (team == null) {
+             System.err.println("ERRO FATAL: Jogador " + username + " não atribuído a uma equipa!");
+             return false;
+        }
         
         synchronized(this) {
             if (this.roundFinished || respondedPlayers.contains(username)) return false; 
             
+            // --- 1. Lógica INDIVIDUAL (e Bónus) ---
             if (currentQuestionType == QuestionType.INDIVIDUAL && individualLatch != null) {
                 
                 if (answer != -1) {
-                    factor = individualLatch.countdown(); // Retorna 2 (bónus) ou 1
+                    factor = individualLatch.countdown(); 
                 } else {
                     factor = 1; 
                     individualLatch.countdown(); 
                 }
                 
                 Pergunta p = questions.get(currentQuestionIndex);
-
-                System.out.println("DEBUG INDIVIDUAL: Jogador=" + username +  " | Resposta=" + answer + " | Correta=" + p.getCorrect() +" | Fator=" + factor);
                 
                 if (answer != -1 && answer == p.getCorrect()) {
                     addPoints(username, p.getPoints() * factor);
                 }
             }
             
+            // --- 2. Registo da Resposta e Rastreio de Respostas Individuais ---
             playerResponses.put(username, answer);
             respondedPlayers.add(username);
 
-            if (respondedPlayers.size() == clientThreads.size()) {
-                this.roundFinished = true; 
-                notifyAll();              
+            // --- 3. Condição de Fim de Ronda (CORREÇÃO E VERIFICAÇÃO CRÍTICA) ---
+            boolean shouldFinish = false;
+            
+            if (currentQuestionType == QuestionType.TEAM) {
+                
+                respondedTeams.add(team); 
+                shouldFinish = (respondedTeams.size() == totalTeams);
+                
+                // *** DEBUG CRÍTICO AQUI ***
+                System.out.println("--- DEBUG FIM RONDA TEAM ---");
+                System.out.println("Equipas que responderam: " + respondedTeams.size());
+                System.out.println("Total de Equipas esperadas: " + totalTeams);
+                System.out.println("Ronda deve terminar: " + shouldFinish);
+                
+            } else { // INDIVIDUAL
+                
+                shouldFinish = (respondedPlayers.size() == clientThreads.size());
+                
+                // *** DEBUG CRÍTICO AQUI ***
+                System.out.println("--- DEBUG FIM RONDA INDIVIDUAL ---");
+                System.out.println("Jogadores que responderam: " + respondedPlayers.size());
+                System.out.println("Total de Jogadores esperados: " + clientThreads.size());
+                System.out.println("Ronda deve terminar: " + shouldFinish);
             }
-        } 
 
+            if (shouldFinish) {
+                this.roundFinished = true; 
+                notifyAll();               // Acorda o Servidor
+            }
+
+        } // FIM DO SYNCHRONIZED BLOCK
+
+        // --- 4. Lógica TEAM (Barreira) ---
         if (currentQuestionType == QuestionType.TEAM && teamBarrier != null) {
-            try { teamBarrier.await(); } catch (InterruptedException e) {}
+            try { teamBarrier.await(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
         }
         
         return true;
     }
-
 
 
     public synchronized void waitForAllResponses() {
@@ -181,6 +216,7 @@ public class GameState {
         }
         System.out.println("DEBUG: Servidor parou de esperar (Tempo acabou ou todos responderam).");
     }
+    
     private synchronized void addPoints(String username, int points) {
         playerPoints.merge(username, points, Integer::sum);
         String team = playerToTeam.get(username);
@@ -218,8 +254,6 @@ public class GameState {
         }
     }
     
-
-
     public synchronized String getLeaderboard() {
         StringBuilder sb = new StringBuilder();
         for (Map.Entry<String, Integer> entry : teamPoints.entrySet()) {

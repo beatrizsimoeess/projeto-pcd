@@ -49,24 +49,25 @@ public class Servidor {
     }
     
     private void tuiLoop() {
-        Scanner scanner = new Scanner(System.in);
-        System.out.println("TUI: Comandos disponíveis:");
-        System.out.println("  new <nEquipas> <nJogadoresPorEquipa> <nPerguntas>");
-        System.out.println("  list");
-        System.out.println("  exit");
-        
-        while (running && scanner.hasNextLine()) {
-            System.out.print("> ");
-            String comando = scanner.nextLine().trim();
-            if (comando.toLowerCase().startsWith("new")) {
-                processarComandoNew(comando);
-            } else if (comando.equalsIgnoreCase("list")) {
-                listarJogosAtivos();
-            } else if (comando.equalsIgnoreCase("exit")) {
-                encerrarServidor();
-                break;
-            }
-        }
+        try (Scanner scanner = new Scanner(System.in)) {
+			System.out.println("TUI: Comandos disponíveis:");
+			System.out.println("  new <nEquipas> <nJogadoresPorEquipa> <nPerguntas>");
+			System.out.println("  list");
+			System.out.println("  exit");
+			
+			while (running && scanner.hasNextLine()) {
+			    System.out.print("> ");
+			    String comando = scanner.nextLine().trim();
+			    if (comando.toLowerCase().startsWith("new")) {
+			        processarComandoNew(comando);
+			    } else if (comando.equalsIgnoreCase("list")) {
+			        listarJogosAtivos();
+			    } else if (comando.equalsIgnoreCase("exit")) {
+			        encerrarServidor();
+			        break;
+			    }
+			}
+		}
     }
     
     public void encerrarServidor() {

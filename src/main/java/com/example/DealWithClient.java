@@ -88,7 +88,6 @@ public class DealWithClient extends Thread {
                 sendMessage("ERROR Falha no registo. Verifique o código, equipa e o nome de utilizador.");
             }
 		} else {
-            // Corrigido para REGISTER (consistente com o if no run())
 			out.println("ERRO_FORMATO: Formato esperado: REGISTER <Codigo> <Equipa> <Username>");
 		}
 	}
