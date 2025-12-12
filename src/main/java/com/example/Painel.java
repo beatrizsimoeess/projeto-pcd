@@ -211,11 +211,9 @@ System.out.println("Perguntas lidas: " + (perguntas != null ? perguntas.size() :
 
 		frame.setLayout(new GridLayout(3, 1, 10, 5));
 
-		//cabeçalho para numeração e countdown
 		JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setBackground(cinza);
 
-		//numeração
         String roundText = "Pergunta " + (indiceAtual + 1) + " / " + perguntas.size();
         roundLabel = new JLabel(roundText);
         roundLabel.setFont(new Font("SansSerif", Font.BOLD, 18));
@@ -223,7 +221,6 @@ System.out.println("Perguntas lidas: " + (perguntas != null ? perguntas.size() :
         roundLabel.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
         headerPanel.add(roundLabel, BorderLayout.WEST);
 
-        // countdown
         countdownLabel = new JLabel("10"); 
         countdownLabel.setFont(new Font("SansSerif", Font.BOLD, 22));
         countdownLabel.setForeground(Color.BLACK);
@@ -291,7 +288,6 @@ System.out.println("Perguntas lidas: " + (perguntas != null ? perguntas.size() :
 		latchDaRonda = new CountDownLatch(1);
         AtomicInteger tempoRestante = new AtomicInteger(segundos);
         
-        // Garante que qualquer timer anterior é parado
         if (timerDaRonda != null && timerDaRonda.isRunning()) {
             timerDaRonda.stop();
         }
@@ -333,7 +329,6 @@ System.out.println("Perguntas lidas: " + (perguntas != null ? perguntas.size() :
         }
 	}
 
-	// pequeno teste
 
 
 	public static void main(String[] args) {

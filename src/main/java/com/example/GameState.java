@@ -21,17 +21,15 @@ public class GameState {
         TEAM     
     }
 
-    // pontuações (Corrigido Hashmap para HashMap)
+
     private HashMap<String, String> playerToTeam = new HashMap<>();  
     private HashMap<String, Integer> teamPoints = new HashMap<>();   
     private HashMap<String, Integer> playerPoints = new HashMap<>();
     private HashMap<String, Integer> roundPoints = new HashMap<>();   
 
-    // 3- respostas (Corrigido Hashset para HashSet)
     private HashMap<String, Integer> playerResponses = new HashMap<>(); 
     private HashSet<String> respondedPlayers = new HashSet<>();       
 
-    // 4- timers e sincro
     private ModifiedCountDownLatch individualLatch;          
     private ModifiedBarrier teamBarrier;           
     
@@ -103,8 +101,7 @@ public class GameState {
             teamBarrier = null;
         } else {
         	teamBarrier = new ModifiedBarrier(totalPlayers, waitTime, () -> {
-        	    // CORREÇÃO: Adicionar verificação do estado para evitar corrida de dados
-        	    if (currentQuestionType == QuestionType.TEAM) { // Verificação redundante mas segura
+        	    if (currentQuestionType == QuestionType.TEAM) { 
         	        System.out.println("DEBUG BARRIER: Barreira atingida (ou timeout). A calcular pontos de equipa.");
         	        calculateTeamPoints(); 
         	    }
@@ -118,7 +115,6 @@ public class GameState {
         return currentQuestionIndex < totalQuestions;
     }
 
-    // respostas
 
     public void broadcast(String msg) {
         for (DealWithClient client : clientThreads) {
@@ -126,7 +122,6 @@ public class GameState {
         }
     }
 
- // GameState.java
 
     public boolean registerResponse(String username, Integer answer) {
     	int factor = 1;
@@ -134,42 +129,34 @@ public class GameState {
         synchronized(this) {
             if (this.roundFinished || respondedPlayers.contains(username)) return false; 
             
-            // --- 1. Lógica INDIVIDUAL, Atribuição de Fator e CÁLCULO DE PONTOS ---
             if (currentQuestionType == QuestionType.INDIVIDUAL && individualLatch != null) {
                 
-                // CORREÇÃO: Só aplica o countdown (e bónus) se o jogador realmente respondeu (answer != -1)
                 if (answer != -1) {
                     factor = individualLatch.countdown(); // Retorna 2 (bónus) ou 1
                 } else {
-                    factor = 1; // Sem resposta = sem bónus/sem pontuação
-                    individualLatch.countdown(); // Necessário para a contagem total
+                    factor = 1; 
+                    individualLatch.countdown(); 
                 }
                 
                 Pergunta p = questions.get(currentQuestionIndex);
 
                 System.out.println("DEBUG INDIVIDUAL: Jogador=" + username +  " | Resposta=" + answer + " | Correta=" + p.getCorrect() +" | Fator=" + factor);
                 
-                // Pontua apenas se a resposta não for nula (-1) E for correta
                 if (answer != -1 && answer == p.getCorrect()) {
-                    // Apenas aqui a pontuação é adicionada
                     addPoints(username, p.getPoints() * factor);
                 }
             }
             
-            // --- 2. Registo da Resposta ---
             playerResponses.put(username, answer);
             respondedPlayers.add(username);
 
-            // --- 3. Fim da Ronda e Notificação ---
             if (respondedPlayers.size() == clientThreads.size()) {
-                this.roundFinished = true; // Seta o flag
-                notifyAll();               // Acorda o Servidor
+                this.roundFinished = true; 
+                notifyAll();              
             }
-        } // FIM DO SYNCHRONIZED BLOCK
+        } 
 
-        // --- 4. Lógica TEAM (Barreira) - Permanece fora do sync ---
         if (currentQuestionType == QuestionType.TEAM && teamBarrier != null) {
-            // Os jogadores que respondem chamam await() para sincronizar
             try { teamBarrier.await(); } catch (InterruptedException e) {}
         }
         
@@ -177,23 +164,17 @@ public class GameState {
     }
 
 
- // GameState.java
-
- // GameState.java
 
     public synchronized void waitForAllResponses() {
         long startTime = System.currentTimeMillis();
         long timeout = 30000; 
         
-        // Fica preso aqui enquanto a ronda não acabar E houver tempo
         while (!roundFinished && (System.currentTimeMillis() - startTime < timeout)) {
             try {
                 long timeLeft = timeout - (System.currentTimeMillis() - startTime);
-                if (timeLeft > 0) wait(timeLeft); // Espera pelo notifyAll() no registerResponse
-                else break; // Se o tempo for zero ou negativo, sai do loop
+                if (timeLeft > 0) wait(timeLeft); 
+                else break; 
             } catch (InterruptedException e) {
-                // Se for interrompido (e.g., pelo notifyAll do registerResponse), 
-                // reavalia a condição do while e sai se roundFinished=true
                 Thread.currentThread().interrupt();
                 break;
             }
@@ -201,7 +182,6 @@ public class GameState {
         System.out.println("DEBUG: Servidor parou de esperar (Tempo acabou ou todos responderam).");
     }
     private synchronized void addPoints(String username, int points) {
-        // 1. Total Jogador
         playerPoints.merge(username, points, Integer::sum);
         String team = playerToTeam.get(username);
         if (team != null) {
@@ -218,7 +198,6 @@ public class GameState {
         for (Map.Entry<String, Integer> entry : playerResponses.entrySet()) {
             String user = entry.getKey();
             int ans = entry.getValue();
-            // Pontua apenas se a resposta não for nula (-1)
             if (ans == -1) continue;
             
             System.out.println("DEBUG EQUIPA: " + user + " respondeu " + ans + " (Correta: " + p.getCorrect() + ")");
@@ -237,12 +216,10 @@ public class GameState {
         if (currentQuestionType == QuestionType.INDIVIDUAL && individualLatch != null) {
             try { individualLatch.await(); } catch (InterruptedException e) {}
         }
-        // Para a ronda TEAM, a lógica é tratada pela Barreira.
     }
     
 
 
-    // Gera o texto para o placar
     public synchronized String getLeaderboard() {
         StringBuilder sb = new StringBuilder();
         for (Map.Entry<String, Integer> entry : teamPoints.entrySet()) {

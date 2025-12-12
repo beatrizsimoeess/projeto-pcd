@@ -6,7 +6,6 @@ public class ModifiedCountDownLatch {
     private final int bonusFactor;
     private int bonusCount;
     
-    // Construtor conforme enunciado V2
     public ModifiedCountDownLatch(int bonusFactor, int bonusCount, int waitPeriod, int count) {
         this.bonusFactor = bonusFactor;
         this.bonusCount = bonusCount;

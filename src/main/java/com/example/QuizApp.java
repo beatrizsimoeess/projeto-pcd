@@ -24,9 +24,8 @@ public class QuizApp {
     private JLabel timerLabel;
     private JLabel roundLabel;
     
-    // NOVO: Componentes para a UI de espera
     private JLabel statusLabel;
-    private JButton[] optionButtons; // Guarda os botões de opção para poder desativá-los
+    private JButton[] optionButtons; 
     
     private final int answerTime = 30; 
     
@@ -142,7 +141,6 @@ public class QuizApp {
     }
 
     private void processServerMessage(String message) {
-        // Proteção contra mensagens vazias
         if (message == null || message.trim().isEmpty()) return;
 
         String[] parts = message.split(" ", 2);
@@ -158,16 +156,13 @@ public class QuizApp {
                     JOptionPane.showMessageDialog(frame, payload, "Erro", JOptionPane.ERROR_MESSAGE);
                     break;
                 case "QUESTION":
-                    // Parse robusto da pergunta
                     try {
-                    // Dividir em 3 partes: Indice, Total, Resto
                     String[] firstSplit = payload.split(" ", 3);
                     
                     String roundNow = firstSplit[0];
                     String roundTotal = firstSplit[1];
                     String content = firstSplit[2];
 
-                    // Dividir o resto em Texto e Opções
                     String[] contentParts = content.split(" ", 2);
                     String questionText = contentParts[0].replace("_", " ");
                     String[] options = contentParts[1].split(";");
@@ -175,7 +170,7 @@ public class QuizApp {
                     Pergunta p = new Pergunta();
                     p.setQuestion(questionText);
                     p.setOptions(options);
-                    hasResponded = false; // Garante que a GUI pode ser ativada
+                    hasResponded = false; 
                     showQuestion(p, roundNow, roundTotal);
                     
                     } catch (Exception e) {
@@ -191,12 +186,9 @@ public class QuizApp {
                     break;
 
                 case "RESULT":
-                    // Só mostra popup se for feedback de resposta (CORRETO/ERRADO)
                     if (payload.startsWith("CORRETO")) {
-                        // Não bloquear a thread da GUI com JOptionPane
                         if (statusLabel != null) statusLabel.setText("CORRETO! " + payload);
                     } else if (payload.startsWith("ERRADO")) {
-                        // Não bloquear a thread da GUI com JOptionPane
                         if (statusLabel != null) statusLabel.setText("ERRADO! " + payload); 
                     }
                     break;
@@ -205,14 +197,12 @@ public class QuizApp {
                     JOptionPane.showMessageDialog(frame, "Fim da Ronda!\n\n" + payload.replace(";", "\n"));
                     
                     hasResponded = false;
-                    // CORREÇÃO: Limpar a mensagem de espera
                     if (statusLabel != null) statusLabel.setText("");
                     
                     break;
                 case "END_GAME":
                     JOptionPane.showMessageDialog(frame, "Jogo Terminado!");
                     closeConnection();
-                    // CORREÇÃO: Limpar a mensagem de espera
                     if (statusLabel != null) statusLabel.setText("");
                     break;
             }
@@ -269,7 +259,6 @@ public class QuizApp {
         optionsPanel.setBackground(new Color(237,237,237));
         frame.add(optionsPanel, BorderLayout.CENTER);
 
-        // NOVO: Adiciona o statusLabel no Sul para mensagens não-bloqueantes
         statusLabel = new JLabel("", JLabel.CENTER);
         statusLabel.setFont(new Font("SansSerif", Font.ITALIC, 14));
         frame.add(statusLabel, BorderLayout.SOUTH);
@@ -277,7 +266,6 @@ public class QuizApp {
         String[] opcoes = pergunta.getOptions(); 
         Cores[] coresEnum = Cores.values();
         
-        // NOVO: Inicializa o array de botões
         optionButtons = new JButton[opcoes.length]; 
 
         for (int i = 0; i < opcoes.length; i++) {
@@ -290,25 +278,21 @@ public class QuizApp {
             botao.setForeground(Color.WHITE);
             botao.setFont(new Font("SansSerif", Font.BOLD, 18));
             
-            // NOVO: Armazenar o botão
             optionButtons[i] = botao;
 
             int index = i;
             botao.addActionListener(e -> {
                 if (!isQuestionActive || hasResponded) return;
                 
-                // 1. DESATIVAÇÃO DA LÓGICA DE TEMPO/ESTADO
                 hasResponded = true;
                 isQuestionActive = false;
                 
-                // 2. ENVIAR RESPOSTA
                 new Thread(() -> {
                     out.println("RESPONSE " + currentGameCode + " " + currentPlayer + " " + index);
                 }).start();
 
-                // 3. CORREÇÃO CRÍTICA: Substituir o JOptionPane bloqueante
                 SwingUtilities.invokeLater(() -> {
-                    setOptionsEnabled(false); // Desativa os botões para evitar resposta dupla
+                    setOptionsEnabled(false); 
                     if (statusLabel != null) {
                         statusLabel.setText("Resposta enviada. Aguardando resultado do Servidor...");
                     }
@@ -318,7 +302,6 @@ public class QuizApp {
             optionsPanel.add(botao);
         }
 
-        // Interromper a thread anterior antes de iniciar uma nova
         if (timerThread != null && timerThread.isAlive()) {
             timerThread.interrupt(); 
         }
@@ -341,10 +324,8 @@ public class QuizApp {
             if (isQuestionActive && !hasResponded) {
                 isQuestionActive = false;
                 SwingUtilities.invokeLater(() -> {
-                    // Já não é JOptionPane bloqueante, mas é a thread principal
                     if (statusLabel != null) statusLabel.setText("Tempo esgotado! Resposta não enviada.");
                     setOptionsEnabled(false);
-                    // Envia resposta nula (ou -1) ao Servidor
                     new Thread(() -> out.println("RESPONSE " + currentGameCode + " " + currentPlayer + " -1")).start();
                 });
             }
@@ -356,7 +337,6 @@ public class QuizApp {
         frame.repaint();
     }
     
-    // NOVO MÉTODO: Controla o estado dos botões para a lógica de espera não-bloqueante
     private void setOptionsEnabled(boolean enabled) {
         if (optionButtons != null) {
             for (JButton button : optionButtons) {

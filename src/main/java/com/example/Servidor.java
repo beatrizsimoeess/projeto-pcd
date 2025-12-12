@@ -24,10 +24,8 @@ public class Servidor {
         this.jogosAtivos = new Hashmap<>();
         this.jogadoresGlobais = new Hashmap<>();
     }
-    //exemplo
     
     public static void main(String[] args) {
-        // Requisito 3.1: Servidor lançado sem argumentos
         Servidor servidor = new Servidor();
         servidor.iniciarServidor(DEFAULT_PORT);
     }
@@ -41,7 +39,6 @@ public class Servidor {
             
             while (running) { 
                 Socket clientSocket = serverSocket.accept();
-                // Cria a thread para lidar com este cliente
                 new DealWithClient(clientSocket, this).start();
             }
         } catch (IOException e) {
@@ -113,24 +110,20 @@ public class Servidor {
 
     private void listarJogosAtivos() {
         System.out.println("Jogos Ativos: " + jogosAtivos.entrySet().size());
-        // Podes expandir para mostrar detalhes
     }
     
     public synchronized GameState registarJogador(String gameCode, String teamName, String username, DealWithClient clientThread) {
-        // 1. Verifica se Username é único globalmente 
         if (jogadoresGlobais.get(username) != null) {
             System.err.println("Registo falhou: Username '" + username + "' já existe.");
             return null;
         }
 
-        // 2. Verifica se Jogo existe 
         GameState jogo = jogosAtivos.get(gameCode);
         if (jogo == null) {
             System.err.println("Registo falhou: Jogo " + gameCode + " não existe.");
             return null;
         }
 
-        // 3. Verifica limites e regista no GameState
         synchronized (jogo) {
             int totalExpected = jogo.getTotalTeams() * jogo.getPlayersPerTeam();
             if (jogo.getClientThreadsCount() >= totalExpected) {
@@ -144,7 +137,6 @@ public class Servidor {
             
             System.out.println("Jogador " + username + " entrou no Jogo " + gameCode);
 
-            // Se encheu, inicia o jogo numa nova thread
             if (jogo.getClientThreadsCount() == totalExpected) {
                 System.out.println("Sala cheia! A iniciar jogo " + gameCode + "...");
                 new Thread(() -> iniciarCicloJogo(jogo)).start();
@@ -157,10 +149,8 @@ public class Servidor {
         System.out.println(">>> INICIO DO JOGO " + jogo.getGameCode() + " <<<");
         
         while (jogo.hasMoreQuestions()) {
-            // 1. Preparar a Ronda (Define Tipo e Cria Latch/Barreira)
             jogo.prepareNextRound(); 
             
-            // Dados para enviar
             Pergunta p = jogo.getCurrentQuestion();
             int atual = jogo.getCurrentQuestionIndex() + 1;
             int total = jogo.getTotalQuestions();
@@ -168,32 +158,20 @@ public class Servidor {
 
             System.out.println("Pergunta " + tipo + ": " + p.getQuestion());
 
-            // 2. Enviar Pergunta
             String msg = "QUESTION " + atual + " " + total + " " + 
                         p.getQuestion().replace(" ", "_") + " " + 
                         String.join(";", p.getOptions());
             jogo.broadcast(msg);
             jogo.broadcast("TIMER 30");
 
-         // 3. O SERVIDOR ESPERA AQUI
-            // Este método bloqueia até TODOS responderem OU passarem 30s.
             System.out.println("... Aguardando respostas ...");
             jogo.waitForAllResponses(); 
 
-            // 4. Se for Equipa, calcula agora (porque o wait acabou)
-            // REMOVIDO: A ModifiedBarrier já chama calculateTeamPoints() no timeout/fim da barreira.
-            /*
-            if (jogo.getCurrentType() == GameState.QuestionType.TEAM) {
-                jogo.calculateTeamPoints(); 
-            }
-            */
-            // 5. Enviar Resultados (Instantâneo se jogares sozinho)
             String leaderboard = jogo.getLeaderboard();
             jogo.broadcast("RESULT Ronda_Terminada");
             jogo.broadcast("LEADERBOARD " + leaderboard.replace(";  ", ";"));
             System.out.println("PLACAR: " + leaderboard);
             
-            // Avança índice
             jogo.nextQuestion();
         }
         
