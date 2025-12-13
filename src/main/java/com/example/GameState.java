@@ -98,7 +98,7 @@ public class GameState {
         int factor = 1;
         String team = playerToTeam.get(username);
         
-        // 1. Capturar a barreira desta ronda LOCALMENTE
+        if (team == null) return false;
         // Isto impede que a thread use "null" se o servidor mudar de ronda entretanto
         ModifiedBarrier barrierThisRound = this.teamBarrier;
         QuestionType typeThisRound = this.currentQuestionType;
@@ -120,8 +120,6 @@ public class GameState {
             playerResponses.put(username, answer);
             respondedPlayers.add(username);
 
-            // CORREÇÃO CRÍTICA: Só acordamos o servidor manualmente se for INDIVIDUAL.
-            // Se for TEAM, ignoramos aqui e deixamos a Barreira tratar disso lá em baixo.
             if (typeThisRound == QuestionType.INDIVIDUAL) {
                 if (respondedPlayers.size() == clientThreads.size()) {
                     this.roundFinished = true; 
@@ -130,8 +128,6 @@ public class GameState {
             }
         } 
 
-        // 2. Esperar na Barreira (apenas para TEAM)
-        // Usamos a variável local 'barrierThisRound' para garantir segurança
         if (typeThisRound == QuestionType.TEAM && barrierThisRound != null) {
             try { 
                 barrierThisRound.await(); 
@@ -226,7 +222,6 @@ public class GameState {
     
     public synchronized String getLeaderboard() {
         StringBuilder sb = new StringBuilder();
-        // Nota: Garante que Hashmap.java tem entrySet() implementado
         for (Map.Entry<String, Integer> entry : teamPoints.entrySet()) {
             String team = entry.getKey();
             int total = entry.getValue();
@@ -239,4 +234,15 @@ public class GameState {
     
     public boolean hasMoreQuestions() { return currentQuestionIndex < totalQuestions; }
     public synchronized void nextQuestion() { currentQuestionIndex++; }
+
+public synchronized boolean isTeamFull(String teamName) {
+        int count = 0;
+        for (String user : playerToTeam.keySet()) { 
+            String t = playerToTeam.get(user);
+            if (t != null && t.equals(teamName)) {
+                count++;
+            }
+        }
+        return count >= this.playersPerTeam;
+    }
 }

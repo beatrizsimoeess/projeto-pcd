@@ -132,6 +132,11 @@ public class Servidor {
                 return null;
             }
 
+            if (jogo.isTeamFull(teamName)) {
+                System.err.println("Registo falhou: A equipa '" + teamName + "' já está cheia (Máx: " + jogo.getPlayersPerTeam() + ").");
+                return null; // O cliente receberá "ERROR ..."
+            }
+
             jogo.registerClient(clientThread);
             jogo.assignPlayerToTeam(username, teamName);
             jogadoresGlobais.put(username, gameCode);
@@ -173,7 +178,13 @@ public class Servidor {
             jogo.broadcast("RESULT Ronda_Terminada");
             jogo.broadcast("LEADERBOARD " + leaderboard.replace(";  ", ";"));
             System.out.println("PLACAR: " + leaderboard);
-            
+
+            try { 
+                Thread.sleep(3000); 
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+
             jogo.nextQuestion();
         }
         

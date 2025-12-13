@@ -32,6 +32,10 @@ public class QuizApp {
     private volatile boolean isQuestionActive = false;
     private int currentRemainingTime;
     private volatile boolean hasResponded = false;
+    private final Color roxo = new Color (91, 72, 181);
+    private static final int LARGURA = 600;
+	private static final int ALTURA = 500;
+
 
     public static void main(String[] args) {
         try {
@@ -42,20 +46,24 @@ public class QuizApp {
     }
 
     private void showHomePage() {
-        frame = new JFrame("IsKahoot - Cliente");
+        frame = new JFrame("IsKahoot");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(600, 500);
-        frame.setLayout(new GridLayout(4, 1)); 
-        frame.setLocationRelativeTo(null); 
+        frame.setSize(LARGURA, ALTURA);
+        frame.setLayout(new GridLayout(3, 1)); 
+		Dimension dimension = Toolkit.getDefaultToolkit().getScreenSize();
+		int x = (dimension.width - LARGURA) / 2;
+		int y = (dimension.height - ALTURA) / 2;
+		frame.setLocation(x, y);
+		frame.setVisible(true);
 
         JLabel titulo = new JLabel("IsKahoot!", JLabel.CENTER);
         titulo.setFont(new Font("Arial", Font.BOLD, 64));
         titulo.setForeground(Color.WHITE);
-        frame.getContentPane().setBackground(new Color(91, 72, 181));
+        frame.getContentPane().setBackground(roxo);
         frame.add(titulo);
 
-        JPanel inputPanel = new JPanel(new GridLayout(5,1,10,10)); 
-        inputPanel.setBackground(new Color(91,72,181));
+        JPanel inputPanel = new JPanel(new GridLayout(4,1,10,10)); 
+        inputPanel.setBackground(roxo);
         inputPanel.setBorder(BorderFactory.createEmptyBorder(0,100,0,100));
 
         JTextField gameField = criarCampoComPlaceholder("Game PIN");
