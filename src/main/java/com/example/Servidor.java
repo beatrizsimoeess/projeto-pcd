@@ -140,7 +140,8 @@ public class Servidor {
 
             if (jogo.getClientThreadsCount() == totalExpected) {
                 System.out.println("Sala cheia! A iniciar jogo " + gameCode + "...");
-                new Thread(() -> iniciarCicloJogo(jogo)).start();
+                Thread gameThread = new Thread(() -> iniciarCicloJogo(jogo));
+                gameThread.start();
             }
             return jogo;
         }

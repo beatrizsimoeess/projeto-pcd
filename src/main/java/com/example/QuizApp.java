@@ -44,7 +44,7 @@ public class QuizApp {
     private void showHomePage() {
         frame = new JFrame("IsKahoot - Cliente");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(600, 400);
+        frame.setSize(600, 500);
         frame.setLayout(new GridLayout(4, 1)); 
         frame.setLocationRelativeTo(null); 
 
