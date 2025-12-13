@@ -25,7 +25,6 @@ public class GameState {
     private HashMap<String, Integer> playerResponses = new HashMap<>(); 
     private HashSet<String> respondedPlayers = new HashSet<>();        
 
-    // Sincronização
     private ModifiedCountDownLatch individualLatch;          
     private ModifiedBarrier teamBarrier;           
 
@@ -38,7 +37,6 @@ public class GameState {
         this.clientThreads = new ArrayList<>();
     }
 
-    // --- Getters ---
     public String getGameCode() { return gameCode; }
     public int getTotalTeams() { return totalTeams; }
     public int getPlayersPerTeam() { return playersPerTeam; }
@@ -54,10 +52,7 @@ public class GameState {
         teamPoints.putIfAbsent(teamName, 0);   
         playerPoints.putIfAbsent(username, 0); 
     }
-
-    // --- Preparação da Ronda ---
     public synchronized void prepareNextRound() {
-        // Alternar tipo de pergunta [cite: 76]
         if (currentQuestionIndex % 2 == 0) {
             currentQuestionType = QuestionType.INDIVIDUAL;
         } else {
@@ -66,7 +61,6 @@ public class GameState {
 
         System.out.println("DEBUG STATE: Ronda " + currentQuestionIndex + " (" + currentQuestionType + ")");
 
-        // Limpeza
         playerResponses.clear();
         respondedPlayers.clear();
         roundPoints.clear(); 
@@ -79,33 +73,29 @@ public class GameState {
             individualLatch = new ModifiedCountDownLatch(2, 2, waitTime, totalPlayers);
             teamBarrier = null;
         } else {
-            // CORREÇÃO: A Barreira é configurada com a ação de acordar o servidor
-            // Isto garante que o servidor só acorda quando a barreira enche!
             teamBarrier = new ModifiedBarrier(totalPlayers, waitTime, () -> {
                 System.out.println("DEBUG BARRIER: Barreira cheia. A calcular e avançar.");
                 calculateTeamPoints(); 
                 synchronized(this) {
                     this.roundFinished = true;
-                    notifyAll(); // Acorda o waitForAllResponses
+                    notifyAll(); 
                 }
             });
             individualLatch = null;
         }
     }
 
-    // --- Registo de Resposta (CORRIGIDO) ---
     public boolean registerResponse(String username, Integer answer) {
         int factor = 1;
         String team = playerToTeam.get(username);
-        
-        if (team == null) return false;
-        // Isto impede que a thread use "null" se o servidor mudar de ronda entretanto
+
+                if (team == null) return false;
+                
         ModifiedBarrier barrierThisRound = this.teamBarrier;
         QuestionType typeThisRound = this.currentQuestionType;
 
         synchronized(this) {
             if (this.roundFinished || respondedPlayers.contains(username)) return false; 
-            
             // Lógica INDIVIDUAL
             if (typeThisRound == QuestionType.INDIVIDUAL && individualLatch != null) {
                 if (answer != -1) factor = individualLatch.countdown(); 
@@ -169,7 +159,7 @@ public class GameState {
 
         HashMap<String, List<Boolean>> resultsByTeam = new HashMap<>();
         
-        for (String team : teamPoints.keySet()) { // (Assumindo que Hashmap tem keySet)
+        for (String team : teamPoints.keySet()) { 
             resultsByTeam.put(team, new ArrayList<>());
         }
         
@@ -197,11 +187,11 @@ public class GameState {
             int pointsToAward = 0;
 
             if (everyoneAnswered && !anyWrong) {
-                pointsToAward = pointsPerQuestion * 2; // Cotação duplicada 
+                pointsToAward = pointsPerQuestion * 2; 
                 System.out.println("DEBUG PONTOS: Equipa " + team + " TODOS acertaram! Bónus Dobro.");
             } 
             else if (atLeastOneCorrect) {
-                pointsToAward = pointsPerQuestion; // Pontuação simples (sem bónus) 
+                pointsToAward = pointsPerQuestion;
                 System.out.println("DEBUG PONTOS: Equipa " + team + " acertou parcialmente. Pontos normais.");
             } else {
                 System.out.println("DEBUG PONTOS: Equipa " + team + " falhou completamente.");
