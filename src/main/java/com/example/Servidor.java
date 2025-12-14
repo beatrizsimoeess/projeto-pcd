@@ -180,7 +180,7 @@ public class Servidor {
             System.out.println("PLACAR: " + leaderboard);
 
             try { 
-                Thread.sleep(3000); 
+                Thread.sleep(5000); 
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }

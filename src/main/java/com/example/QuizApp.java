@@ -4,37 +4,53 @@ import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class QuizApp {
 
+    // --- Lógica de Rede ---
     private Socket clientSocket;
     private PrintWriter out;
     private BufferedReader in;
     private Thread clientListenerThread; 
     
-    private JFrame frame;
+    // --- Dados do Jogo ---
     private String currentPlayer;
     private String currentGameCode;
+    
+    // --- Interface Gráfica ---
+    private JFrame frame;
+    private JButton enterBtn; // Variável global para reativar em caso de erro
+    
     private JLabel timerLabel;
     private JLabel roundLabel;
-    
     private JLabel statusLabel;
     private JButton[] optionButtons; 
     
+    // --- Cores e Constantes ---
     private final int answerTime = 30; 
     private Thread timerThread; 
     private volatile boolean isQuestionActive = false;
     private int currentRemainingTime;
     private volatile boolean hasResponded = false;
+    
+    // Flag de controlo de erro no registo
+    private volatile boolean registrationFailed = false; 
+    
     private final Color roxo = new Color (91, 72, 181);
+    private final Color cinza = new Color(237, 237, 237);
     private static final int LARGURA = 600;
-	private static final int ALTURA = 500;
+    private static final int ALTURA = 500;
+    
+    // Timer para o ecrã de leaderboard
+    private Timer leaderboardTimer;
 
 
     public static void main(String[] args) {
@@ -46,15 +62,22 @@ public class QuizApp {
     }
 
     private void showHomePage() {
-        frame = new JFrame("IsKahoot");
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(LARGURA, ALTURA);
+        stopAnyRunningTimer();
+        
+        if (frame != null) {
+            frame.getContentPane().removeAll();
+        } else {
+            frame = new JFrame("IsKahoot");
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.setSize(LARGURA, ALTURA);
+            Dimension dimension = Toolkit.getDefaultToolkit().getScreenSize();
+            int x = (dimension.width - LARGURA) / 2;
+            int y = (dimension.height - ALTURA) / 2;
+            frame.setLocation(x, y);
+        }
+        
         frame.setLayout(new GridLayout(3, 1)); 
-		Dimension dimension = Toolkit.getDefaultToolkit().getScreenSize();
-		int x = (dimension.width - LARGURA) / 2;
-		int y = (dimension.height - ALTURA) / 2;
-		frame.setLocation(x, y);
-		frame.setVisible(true);
+        frame.setVisible(true);
 
         JLabel titulo = new JLabel("IsKahoot!", JLabel.CENTER);
         titulo.setFont(new Font("Arial", Font.BOLD, 64));
@@ -70,7 +93,7 @@ public class QuizApp {
         JTextField teamField = criarCampoComPlaceholder("Team PIN");
         JTextField playerField = criarCampoComPlaceholder("Player ID");
 
-        JButton enterBtn = new JButton("Enter");
+        enterBtn = new JButton("Enter");
         enterBtn.setFont(new Font("SansSerif", Font.BOLD, 18));
         enterBtn.setBackground(Color.BLACK);
         enterBtn.setForeground(Color.WHITE);
@@ -90,19 +113,24 @@ public class QuizApp {
             String team = teamField.getText().trim();
             String player = playerField.getText().trim();
             
+            enterBtn.setEnabled(false); // Desativar para evitar duplo clique
             
             String host = "localhost";
             int port = 12345;
             
-            new Thread(() -> connectAndRegister( host, port, game, team, player)).start();
+            new Thread(() -> connectAndRegister(host, port, game, team, player)).start();
         });
 
         inputPanel.add(gameField);
         inputPanel.add(teamField);
         inputPanel.add(playerField);
         inputPanel.add(enterBtn);
+        
         frame.add(inputPanel);
-        frame.setVisible(true);
+        frame.add(new JLabel("")); // Espaço extra
+        
+        frame.revalidate();
+        frame.repaint();
     }
     
     private void connectAndRegister(String host, int port, String gameCode, String team, String player) {
@@ -118,11 +146,12 @@ public class QuizApp {
             
             clientListenerThread = new Thread(this::listenToServer);
             clientListenerThread.start();
-            
 
         } catch (IOException e) {
-            SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(frame, 
-                "Erro ao conectar ao Servidor: " + e.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE));
+            SwingUtilities.invokeLater(() -> {
+                JOptionPane.showMessageDialog(frame, "Erro ao conectar: " + e.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
+                enterBtn.setEnabled(true);
+            });
             closeConnection();
         }
     }
@@ -130,20 +159,23 @@ public class QuizApp {
     private void listenToServer() {
         String serverMessage;
         try {
+            registrationFailed = false; // Reset da flag
             while ((serverMessage = in.readLine()) != null) {
                 System.out.println("Servidor: " + serverMessage);
                 processServerMessage(serverMessage);
             }
         } catch (IOException e) {
             if (clientSocket != null && !clientSocket.isClosed()) {
-                System.err.println("Conexão perdida com o Servidor: " + e.getMessage());
+                System.err.println("Conexão perdida: " + e.getMessage());
             }
         } finally {
             closeConnection();
-            SwingUtilities.invokeLater(() -> {
-                JOptionPane.showMessageDialog(frame, "Sessão encerrada ou perdida.", "Fim", JOptionPane.INFORMATION_MESSAGE);
-                showHomePage(); 
-            });
+            if (!registrationFailed) {
+                SwingUtilities.invokeLater(() -> {
+                    JOptionPane.showMessageDialog(frame, "Sessão encerrada.", "Fim", JOptionPane.INFORMATION_MESSAGE);
+                    showHomePage(); 
+                });
+            }
         }
     }
 
@@ -160,28 +192,28 @@ public class QuizApp {
                     JOptionPane.showMessageDialog(frame, "Registo com sucesso! Aguarda o início.");
                     break;
                 case "ERROR":
+                    registrationFailed = true; 
                     JOptionPane.showMessageDialog(frame, payload, "Erro", JOptionPane.ERROR_MESSAGE);
+                    enterBtn.setEnabled(true);
                     break;
                 case "QUESTION":
                     try {
-                    String[] firstSplit = payload.split(" ", 3);
-                    
-                    String roundNow = firstSplit[0];
-                    String roundTotal = firstSplit[1];
-                    String content = firstSplit[2];
+                        String[] firstSplit = payload.split(" ", 3);
+                        String roundNow = firstSplit[0];
+                        String roundTotal = firstSplit[1];
+                        String content = firstSplit[2];
 
-                    String[] contentParts = content.split(" ", 2);
-                    String questionText = contentParts[0].replace("_", " ");
-                    String[] options = contentParts[1].split(";");
+                        String[] contentParts = content.split(" ", 2);
+                        String questionText = contentParts[0].replace("_", " ");
+                        String[] options = contentParts[1].split(";");
 
-                    Pergunta p = new Pergunta();
-                    p.setQuestion(questionText);
-                    p.setOptions(options);
-                    hasResponded = false; 
-                    showQuestion(p, roundNow, roundTotal);
-                    
+                        Pergunta p = new Pergunta();
+                        p.setQuestion(questionText);
+                        p.setOptions(options);
+                        
+                        showQuestion(p, roundNow, roundTotal);
                     } catch (Exception e) {
-                        System.err.println("Erro ao mostrar pergunta: " + e.getMessage());
+                        System.err.println("Erro parsing: " + e.getMessage());
                     }
                     break;
 
@@ -193,24 +225,17 @@ public class QuizApp {
                     break;
 
                 case "RESULT":
-                    if (payload.startsWith("CORRETO")) {
-                        if (statusLabel != null) statusLabel.setText("CORRETO! " + payload);
-                    } else if (payload.startsWith("ERRADO")) {
-                        if (statusLabel != null) statusLabel.setText("ERRADO! " + payload); 
-                    }
+                    if (statusLabel != null) statusLabel.setText(payload);
                     break;
                     
                 case "LEADERBOARD":
-                    JOptionPane.showMessageDialog(frame, "Fim da Ronda!\n\n" + payload.replace(";", "\n"));
-                    
-                    hasResponded = false;
-                    if (statusLabel != null) statusLabel.setText("");
-                    
+                    showLeaderboardScreen(payload, false);
                     break;
+                    
                 case "END_GAME":
-                    JOptionPane.showMessageDialog(frame, "Jogo Terminado!");
                     closeConnection();
-                    if (statusLabel != null) statusLabel.setText("");
+                    registrationFailed = true; 
+                    showLeaderboardScreen(payload.isEmpty() ? "Fim do Jogo" : payload, true);
                     break;
             }
         });
@@ -224,10 +249,13 @@ public class QuizApp {
         } catch (IOException ignored) {}
     }
     
+    // --- ECRÃ DE PERGUNTA (Layout Original Preservado) ---
     private void showQuestion(Pergunta pergunta, String roundNow, String roundTotal) {
+        stopAnyRunningTimer();
+        
         frame.getContentPane().removeAll();
         frame.setLayout(new BorderLayout());
-        frame.getContentPane().setBackground(new Color(237,237,237));
+        frame.getContentPane().setBackground(cinza); // Fundo cinza
 
         isQuestionActive = true;
         hasResponded = false;
@@ -252,9 +280,7 @@ public class QuizApp {
         topPanel.add(roundLabel, BorderLayout.WEST);
 
         JLabel questionLabel = new JLabel(
-                "<html><body style='text-align:center;width:400px;'>"
-                        + pergunta.getQuestion()
-                        + "</body></html>",
+                "<html><body style='text-align:center;width:400px;'>" + pergunta.getQuestion() + "</body></html>",
                 JLabel.CENTER
         );
         questionLabel.setFont(new Font("SansSerif", Font.BOLD, 24));
@@ -263,7 +289,7 @@ public class QuizApp {
         frame.add(topPanel, BorderLayout.NORTH);
 
         JPanel optionsPanel = new JPanel(new GridLayout(2, 2, 10, 10));
-        optionsPanel.setBackground(new Color(237,237,237));
+        optionsPanel.setBackground(cinza);
         frame.add(optionsPanel, BorderLayout.CENTER);
 
         statusLabel = new JLabel("", JLabel.CENTER);
@@ -272,76 +298,132 @@ public class QuizApp {
 
         String[] opcoes = pergunta.getOptions(); 
         Cores[] coresEnum = Cores.values();
-        
         optionButtons = new JButton[opcoes.length]; 
 
         for (int i = 0; i < opcoes.length; i++) {
-            String textoBotao = "<html><body style='text-align:center;width:200px;'>"
-                    + opcoes[i]
-                    + "</body></html>";
-
+            String textoBotao = "<html><body style='text-align:center;width:200px;'>" + opcoes[i] + "</body></html>";
             JButton botao = new JButton(textoBotao);
             botao.setBackground(coresEnum[i % coresEnum.length].getColor());
             botao.setForeground(Color.WHITE);
             botao.setFont(new Font("SansSerif", Font.BOLD, 18));
             
             optionButtons[i] = botao;
-
             int index = i;
+            
             botao.addActionListener(e -> {
                 if (!isQuestionActive || hasResponded) return;
-                
                 hasResponded = true;
                 isQuestionActive = false;
                 
-                new Thread(() -> {
-                    out.println("RESPONSE " + currentGameCode + " " + currentPlayer + " " + index);
-                }).start();
+                new Thread(() -> out.println("RESPONSE " + currentGameCode + " " + currentPlayer + " " + index)).start();
 
                 SwingUtilities.invokeLater(() -> {
                     setOptionsEnabled(false); 
-                    if (statusLabel != null) {
-                        statusLabel.setText("Resposta enviada. Aguardando resultado do Servidor...");
-                    }
+                    if (statusLabel != null) statusLabel.setText("Resposta enviada...");
                 });
             });
-
             optionsPanel.add(botao);
         }
 
-        if (timerThread != null && timerThread.isAlive()) {
-            timerThread.interrupt(); 
-        }
+        if (timerThread != null && timerThread.isAlive()) timerThread.interrupt();
         timerThread = new Thread(() -> {
             while (isQuestionActive && currentRemainingTime > 0) {
-                try {
-                    Thread.sleep(1000); 
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-
+                try { Thread.sleep(1000); } catch (InterruptedException e) { break; }
                 currentRemainingTime--;
-
-                SwingUtilities.invokeLater(() ->
-                        timerLabel.setText(String.valueOf(currentRemainingTime))
-                );
-            }
-
-            if (isQuestionActive && !hasResponded) {
-                isQuestionActive = false;
                 SwingUtilities.invokeLater(() -> {
-                    if (statusLabel != null) statusLabel.setText("Tempo esgotado! Resposta não enviada.");
-                    setOptionsEnabled(false);
-                    new Thread(() -> out.println("RESPONSE " + currentGameCode + " " + currentPlayer + " -1")).start();
+                    if(timerLabel!=null) timerLabel.setText(String.valueOf(currentRemainingTime));
                 });
             }
+            if (isQuestionActive && !hasResponded) {
+                SwingUtilities.invokeLater(() -> {
+                    if (statusLabel != null) statusLabel.setText("Tempo esgotado!");
+                    setOptionsEnabled(false);
+                });
+                new Thread(() -> out.println("RESPONSE " + currentGameCode + " " + currentPlayer + " -1")).start();
+            }
         });
-
         timerThread.start();
 
         frame.revalidate();
         frame.repaint();
+    }
+    
+    // --- NOVO ECRÃ DE LEADERBOARD ---
+    private void showLeaderboardScreen(String data, boolean isFinal) {
+        stopAnyRunningTimer();
+        
+        frame.getContentPane().removeAll();
+        frame.setLayout(new BorderLayout());
+        frame.getContentPane().setBackground(isFinal ? new Color(40,40,40) : roxo); 
+
+        String titleText = isFinal ? "RESULTADO FINAL" : "Classificação";
+        JLabel title = new JLabel(titleText, JLabel.CENTER);
+        title.setFont(new Font("Arial", Font.BOLD, 48));
+        title.setForeground(Color.WHITE);
+        title.setBorder(BorderFactory.createEmptyBorder(20, 0, 20, 0));
+        frame.add(title, BorderLayout.NORTH);
+
+        JPanel centerPanel = new JPanel(new GridBagLayout());
+        centerPanel.setOpaque(false);
+        JPanel listPanel = new JPanel(new GridLayout(0, 1, 10, 10)); 
+        listPanel.setOpaque(false);
+        
+        String[] equipas = data.split(";");
+        for (String eq : equipas) {
+            if (eq.trim().isEmpty()) continue;
+            JLabel lbl = new JLabel(eq.trim(), JLabel.CENTER);
+            lbl.setFont(new Font("SansSerif", Font.BOLD, 20));
+            lbl.setForeground(Color.WHITE);
+            lbl.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(Color.WHITE, 2),
+                BorderFactory.createEmptyBorder(10, 40, 10, 40)
+            ));
+            listPanel.add(lbl);
+        }
+        centerPanel.add(listPanel);
+        
+        JScrollPane scroll = new JScrollPane(centerPanel);
+        scroll.setBorder(null);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
+        frame.add(scroll, BorderLayout.CENTER);
+
+        JLabel footerLabel = new JLabel("", JLabel.CENTER);
+        footerLabel.setFont(new Font("SansSerif", Font.BOLD, 18));
+        footerLabel.setForeground(isFinal ? Color.YELLOW : Color.LIGHT_GRAY);
+        footerLabel.setBorder(BorderFactory.createEmptyBorder(20, 0, 20, 0));
+        frame.add(footerLabel, BorderLayout.SOUTH);
+
+        if (!isFinal) {
+            // Timer visual de 10s
+            AtomicInteger countdown = new AtomicInteger(5);
+            footerLabel.setText("Próxima ronda em " + countdown.get() + "...");
+            
+            leaderboardTimer = new Timer(1000, e -> {
+                int rest = countdown.decrementAndGet();
+                if (rest > 0) {
+                    footerLabel.setText("Próxima ronda em " + rest + "...");
+                } else {
+                    footerLabel.setText("A carregar...");
+                    ((Timer)e.getSource()).stop();
+                }
+            });
+            leaderboardTimer.start();
+        } else {
+            footerLabel.setText("Obrigado por jogar!");
+            JButton exitBtn = new JButton("Sair");
+            exitBtn.addActionListener(e -> System.exit(0));
+            frame.add(exitBtn, BorderLayout.SOUTH);
+        }
+
+        frame.revalidate();
+        frame.repaint();
+    }
+
+    private void stopAnyRunningTimer() {
+        if (leaderboardTimer != null && leaderboardTimer.isRunning()) {
+            leaderboardTimer.stop();
+        }
     }
     
     private void setOptionsEnabled(boolean enabled) {
@@ -351,22 +433,21 @@ public class QuizApp {
             }
         }
     }
-    
 
     private JTextField criarCampoComPlaceholder(String texto) {
         JTextField campo = new JTextField(texto, JTextField.CENTER);
         campo.setFont(new Font("SansSerif", Font.PLAIN, 18));
         campo.setForeground(Color.GRAY);
 
-        campo.addFocusListener(new java.awt.event.FocusAdapter() {
+        campo.addFocusListener(new FocusAdapter() {
             @Override
-            public void focusGained(java.awt.event.FocusEvent e) {
+            public void focusGained(FocusEvent e) {
                 if(campo.getText().equals(texto)){
                     campo.setText(""); campo.setForeground(Color.BLACK);
                 }
             }
             @Override
-            public void focusLost(java.awt.event.FocusEvent e){
+            public void focusLost(FocusEvent e){
                 if(campo.getText().isEmpty()){
                     campo.setText(texto); campo.setForeground(Color.GRAY);
                 }
@@ -381,16 +462,12 @@ public class QuizApp {
         try { Integer.parseInt(text); return true; } 
         catch(NumberFormatException e) { return false; }
     }
-    
-    private boolean isHostPort(JTextField field) {
-        String text = field.getText().trim();
-        if(text.isEmpty() || text.contains("Host:Port")) return false;
-        
-        String[] parts = text.split(":");
-        if (parts.length != 2) return false;
-        try { Integer.parseInt(parts[1]); return true; } 
-        catch(NumberFormatException e) { return false; }
-    }
+}
 
-
+class SimpleDocumentListener implements DocumentListener {
+    private final Runnable r;
+    public SimpleDocumentListener(Runnable r) { this.r = r; }
+    public void insertUpdate(DocumentEvent e) { r.run(); }
+    public void removeUpdate(DocumentEvent e) { r.run(); }
+    public void changedUpdate(DocumentEvent e) { r.run(); }
 }
