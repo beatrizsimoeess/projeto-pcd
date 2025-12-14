@@ -1,4 +1,4 @@
-package com.example;
+package com.example.view;
 
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;

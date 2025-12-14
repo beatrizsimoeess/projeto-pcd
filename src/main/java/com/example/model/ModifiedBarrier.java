@@ -1,4 +1,4 @@
-package com.example;
+package com.example.model;
 
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;

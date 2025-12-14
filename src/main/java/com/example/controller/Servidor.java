@@ -1,13 +1,17 @@
-package com.example;
+package com.example.controller;
 
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Scanner;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import com.example.model.GameState;
+import com.example.model.Hashmap;
+import com.example.model.Pergunta;
+import com.example.model.map;
 
 public class Servidor {
 
@@ -134,7 +138,7 @@ public class Servidor {
 
             if (jogo.isTeamFull(teamName)) {
                 System.err.println("Registo falhou: A equipa '" + teamName + "' já está cheia (Máx: " + jogo.getPlayersPerTeam() + ").");
-                return null; // O cliente receberá "ERROR ..."
+                return null; 
             }
 
             jogo.registerClient(clientThread);
@@ -187,9 +191,38 @@ public class Servidor {
 
             jogo.nextQuestion();
         }
-        
         jogo.broadcast("END_GAME");
-        System.out.println("Jogo encerrado.");
+        System.out.println("Jogo " + jogo.getGameCode() + " encerrado.");
+
+        jogosAtivos.remove(jogo.getGameCode());
+        
+        
+        String gameCode = jogo.getGameCode();
+        java.util.Set<String> jogadoresParaRemover = new java.util.HashSet<>();
+        
+        for (java.util.Map.Entry<String, String> entry : jogadoresGlobais.entrySet()) {
+            if (entry.getValue().equals(gameCode)) {
+                jogadoresParaRemover.add(entry.getKey());
+            }
+        }
+        
+        for (String username : jogadoresParaRemover) {
+            jogadoresGlobais.remove(username);
+        }
+        
+        System.out.println("DEBUG: Jogo " + gameCode + " e seus jogadores removidos dos registos.");
     }
+    public void removeJogador(String username) {
+        if (username == null) return;
+        String gameCode = jogadoresGlobais.remove(username);
+        
+        if (gameCode != null) {
+            System.out.println("DEBUG: Jogador " + username + " desconectou. Removido do Jogo " + gameCode);
+            
+            
+        }
+    }
+    
+    
 
 }

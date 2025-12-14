@@ -1,4 +1,4 @@
-package com.example;
+package com.example.model;
 
 import java.util.Map;
 import java.util.Set;

@@ -1,10 +1,12 @@
-package com.example;
+package com.example.controller;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+
+import com.example.model.GameState;
 
 public class DealWithClient extends Thread {
 
@@ -66,10 +68,14 @@ public class DealWithClient extends Thread {
 				}
 			}
 		} catch (IOException e) {
-			System.out.println("Conexão perdida com " + username);
+		    System.out.println("Conexão perdida com " + username);
 		} finally {
-			try { socket.close(); } catch (IOException e) {}
-		}
+		    if (username != null) {
+		        servidor.removeJogador(this.username);
+		    }
+		    
+		    try { socket.close(); } catch (IOException e) {}
+	}
 	}
 
 
@@ -95,7 +101,17 @@ public class DealWithClient extends Thread {
 
 	public void sendMessage(String message) {
 		if (out != null) {
-			out.println(message);
+			String finalMessage = message;
+			
+			if (message.startsWith("LEADERBOARD")) {
+				
+								
+				System.out.println("DEBUG: Enviando Leaderboard personalizado para " + username + ": " + finalMessage);
+			}
+
+			out.println(finalMessage);
 		}
 	}
+	
+	
 }

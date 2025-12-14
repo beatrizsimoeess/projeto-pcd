@@ -1,6 +1,8 @@
-package com.example;
+package com.example.model;
 
 import java.util.*;
+
+import com.example.controller.DealWithClient;
 
 public class GameState {
 
@@ -96,7 +98,6 @@ public class GameState {
 
         synchronized(this) {
             if (this.roundFinished || respondedPlayers.contains(username)) return false; 
-            // Lógica INDIVIDUAL
             if (typeThisRound == QuestionType.INDIVIDUAL && individualLatch != null) {
                 if (answer != -1) factor = individualLatch.countdown(); 
                 else individualLatch.countdown();
@@ -209,16 +210,35 @@ public class GameState {
             client.sendMessage(msg);
         }
     }
-    
     public synchronized String getLeaderboard() {
+        
+        List<Map.Entry<String, Integer>> rankingList = new ArrayList<>(teamPoints.entrySet());
+
+        rankingList.sort(new Comparator<Map.Entry<String, Integer>>() {
+            @Override
+            public int compare(Map.Entry<String, Integer> entry1, Map.Entry<String, Integer> entry2) {
+                return entry2.getValue() - entry1.getValue();
+            }
+        });
+
         StringBuilder sb = new StringBuilder();
-        for (Map.Entry<String, Integer> entry : teamPoints.entrySet()) {
+        for (Map.Entry<String, Integer> entry : rankingList) {
             String team = entry.getKey();
             int total = entry.getValue();
-            int rPoints = roundPoints.get(team) != null ? roundPoints.get(team) : 0;
-            sb.append(team).append(": ").append(total).append(" (+").append(rPoints).append(");  ");
+            
+            int rPoints = roundPoints.getOrDefault(team, 0); 
+            
+            sb.append(team)
+              .append(": ").append(total)
+              .append(" (+").append(rPoints).append(");"); 
         }
+        
         if (sb.length() == 0) return "A aguardar pontuações...";
+        
+        if (sb.charAt(sb.length() - 1) == ';') {
+            sb.setLength(sb.length() - 1);
+        }
+        
         return sb.toString();
     }
     
@@ -235,4 +255,8 @@ public synchronized boolean isTeamFull(String teamName) {
         }
         return count >= this.playersPerTeam;
     }
+public synchronized String getTeamName(String username) {
+    return playerToTeam.get(username);
+}
+
 }
