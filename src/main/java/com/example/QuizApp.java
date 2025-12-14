@@ -189,7 +189,7 @@ public class QuizApp {
         SwingUtilities.invokeLater(() -> {
             switch (command) {
                 case "SUCCESS":
-                    JOptionPane.showMessageDialog(frame, "Registo com sucesso! Aguarda o início.");
+                    showLobbyScreen();
                     break;
                 case "ERROR":
                     registrationFailed = true; 
@@ -344,6 +344,21 @@ public class QuizApp {
         });
         timerThread.start();
 
+        frame.revalidate();
+        frame.repaint();
+    }
+
+    private void showLobbyScreen() {
+        frame.getContentPane().removeAll();
+        frame.setLayout(new BorderLayout());
+        frame.getContentPane().setBackground(roxo); // Mantém o tema
+
+        JLabel loadingLabel = new JLabel("<html><div style='text-align: center;'>Registado com sucesso!<br><br>A aguardar pelos outros jogadores...</div></html>", JLabel.CENTER);
+        loadingLabel.setFont(new Font("Arial", Font.BOLD, 28));
+        loadingLabel.setForeground(Color.WHITE);
+
+        frame.add(loadingLabel, BorderLayout.CENTER);
+        
         frame.revalidate();
         frame.repaint();
     }
