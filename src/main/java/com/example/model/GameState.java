@@ -15,6 +15,8 @@ public class GameState {
     private int playersPerTeam;           
     private int totalQuestions; 
     private boolean roundFinished = false; 
+    
+    private final int timeout = 30000;
 
     private QuestionType currentQuestionType = QuestionType.INDIVIDUAL; 
     public enum QuestionType { INDIVIDUAL, TEAM }
@@ -91,15 +93,21 @@ public class GameState {
         int factor = 1;
         String team = playerToTeam.get(username);
 
-                if (team == null) return false;
+                if (team == null) {
+                	return false;
+                }
                 
         ModifiedBarrier barrierThisRound = this.teamBarrier;
         QuestionType typeThisRound = this.currentQuestionType;
 
         synchronized(this) {
-            if (this.roundFinished || respondedPlayers.contains(username)) return false; 
+            if (this.roundFinished || respondedPlayers.contains(username)) {
+            	return false; 
+            }
             if (typeThisRound == QuestionType.INDIVIDUAL && individualLatch != null) {
-                if (answer != -1) factor = individualLatch.countdown(); 
+                if (answer != -1) {
+                	factor = individualLatch.countdown(); 
+                }
                 else individualLatch.countdown();
                 
                 Pergunta p = questions.get(currentQuestionIndex);
@@ -132,12 +140,13 @@ public class GameState {
 
     public synchronized void waitForAllResponses() {
         long startTime = System.currentTimeMillis();
-        long timeout = 30000; 
         
-        while (!roundFinished && (System.currentTimeMillis() - startTime < timeout)) {
+        while (!roundFinished && (System.currentTimeMillis() - startTime < this.timeout)) {
             try {
-                long timeLeft = timeout - (System.currentTimeMillis() - startTime);
-                if (timeLeft > 0) wait(timeLeft); 
+                long timeLeft = this.timeout - (System.currentTimeMillis() - startTime);
+                if (timeLeft > 0) {
+                	wait(timeLeft); 
+                }
             } catch (InterruptedException e) { break; }
         }
     }
@@ -152,7 +161,9 @@ public class GameState {
     }
 
     public synchronized void calculateTeamPoints() {
-        if (currentQuestionType != QuestionType.TEAM) return;
+        if (currentQuestionType != QuestionType.TEAM) {
+        	return;
+        }
         
         Pergunta p = questions.get(currentQuestionIndex);
         int pointsPerQuestion = p.getPoints();
@@ -210,6 +221,7 @@ public class GameState {
             client.sendMessage(msg);
         }
     }
+    
     public synchronized String getLeaderboard() {
         
         List<Map.Entry<String, Integer>> rankingList = new ArrayList<>(teamPoints.entrySet());
@@ -233,7 +245,9 @@ public class GameState {
               .append(" (+").append(rPoints).append(");"); 
         }
         
-        if (sb.length() == 0) return "A aguardar pontuações...";
+        if (sb.length() == 0) {
+        	return "A aguardar pontuações...";
+        }
         
         if (sb.charAt(sb.length() - 1) == ';') {
             sb.setLength(sb.length() - 1);

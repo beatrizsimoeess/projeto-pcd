@@ -21,8 +21,8 @@ public class QuizView {
     private JButton[] optionButtons; 
     private Timer leaderboardTimer;
     
-    private final Color roxo = new Color (91, 72, 181);
-    private final Color cinza = new Color(237, 237, 237);
+    private final Color ROXO = new Color (91, 72, 181);
+    private final Color CINZA = new Color(237, 237, 237);
     private static final int LARGURA = 600;
     private static final int ALTURA = 500;
 
@@ -48,11 +48,11 @@ public class QuizView {
         JLabel titulo = new JLabel("IsKahoot!", JLabel.CENTER);
         titulo.setFont(new Font("Arial", Font.BOLD, 64));
         titulo.setForeground(Color.WHITE);
-        frame.getContentPane().setBackground(roxo);
+        frame.getContentPane().setBackground(ROXO);
         frame.add(titulo);
 
         JPanel inputPanel = new JPanel(new GridLayout(4,1,10,10)); 
-        inputPanel.setBackground(roxo);
+        inputPanel.setBackground(ROXO);
         inputPanel.setBorder(BorderFactory.createEmptyBorder(0,100,0,100));
 
         JTextField gameField = criarCampoComPlaceholder("Game PIN");
@@ -102,7 +102,7 @@ public class QuizView {
     public void showLobbyScreen() {
         frame.getContentPane().removeAll();
         frame.setLayout(new BorderLayout());
-        frame.getContentPane().setBackground(roxo); 
+        frame.getContentPane().setBackground(ROXO); 
 
         JLabel loadingLabel = new JLabel("<html><div style='text-align: center;'>Registado com sucesso!<br><br>A aguardar pelos outros jogadores...</div></html>", JLabel.CENTER);
         loadingLabel.setFont(new Font("Arial", Font.BOLD, 28));
@@ -119,7 +119,7 @@ public class QuizView {
         
         frame.getContentPane().removeAll();
         frame.setLayout(new BorderLayout());
-        frame.getContentPane().setBackground(cinza); 
+        frame.getContentPane().setBackground(CINZA); 
 
         JPanel topPanel = new JPanel(new BorderLayout());
         topPanel.setOpaque(false);
@@ -149,7 +149,7 @@ public class QuizView {
         frame.add(topPanel, BorderLayout.NORTH);
 
         JPanel optionsPanel = new JPanel(new GridLayout(2, 2, 10, 10));
-        optionsPanel.setBackground(cinza);
+        optionsPanel.setBackground(CINZA);
         frame.add(optionsPanel, BorderLayout.CENTER);
 
         statusLabel = new JLabel("", JLabel.CENTER);
@@ -188,7 +188,7 @@ public class QuizView {
         
         frame.getContentPane().removeAll();
         frame.setLayout(new BorderLayout());
-        frame.getContentPane().setBackground(isFinal ? new Color(40,40,40) : roxo); 
+        frame.getContentPane().setBackground(isFinal ? new Color(40,40,40) : ROXO); 
 
         String titleText = isFinal ? "RESULTADO FINAL" : "Classificação";
         JLabel title = new JLabel(titleText, JLabel.CENTER);
@@ -245,7 +245,6 @@ public class QuizView {
         } else {
             footerLabel.setText("Obrigado por jogar!");
             JButton exitBtn = new JButton("Sair");
-            // --- LÓGICA DO CONTROLLER AQUI (CALLBACK) ---
             exitBtn.addActionListener(e -> controller.onExitGame());
             frame.add(exitBtn, BorderLayout.SOUTH);
         }

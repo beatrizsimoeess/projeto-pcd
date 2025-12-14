@@ -10,8 +10,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import com.example.model.GameState;
 import com.example.model.Hashmap;
+import com.example.model.Hashset;
 import com.example.model.Pergunta;
 import com.example.model.map;
+import com.example.model.set;
 
 public class Servidor {
 
@@ -76,7 +78,12 @@ public class Servidor {
     
     public void encerrarServidor() {
         running = false;
-        try { if (serverSocket != null) serverSocket.close(); } catch (IOException e) {}
+        try { 
+        	if (serverSocket != null) {
+        		serverSocket.close(); 
+        	}
+        	} 
+        catch (IOException e) {}
         System.out.println("Servidor encerrado.");
     }
     
@@ -191,27 +198,29 @@ public class Servidor {
 
             jogo.nextQuestion();
         }
+        
         jogo.broadcast("END_GAME");
         System.out.println("Jogo " + jogo.getGameCode() + " encerrado.");
-
-        jogosAtivos.remove(jogo.getGameCode());
-        
         
         String gameCode = jogo.getGameCode();
-        java.util.Set<String> jogadoresParaRemover = new java.util.HashSet<>();
-        
-        for (java.util.Map.Entry<String, String> entry : jogadoresGlobais.entrySet()) {
+        set<String> jogadoresParaRemover = new Hashset<>();
+        jogosAtivos.remove(jogo.getGameCode());
+
+        for (var entry : jogadoresGlobais.entrySet()) {
             if (entry.getValue().equals(gameCode)) {
                 jogadoresParaRemover.add(entry.getKey());
             }
         }
-        
+
         for (String username : jogadoresParaRemover) {
             jogadoresGlobais.remove(username);
         }
-        
+
         System.out.println("DEBUG: Jogo " + gameCode + " e seus jogadores removidos dos registos.");
+ 
+       
     }
+    
     public void removeJogador(String username) {
         if (username == null) return;
         String gameCode = jogadoresGlobais.remove(username);

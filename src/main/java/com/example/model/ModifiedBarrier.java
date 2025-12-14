@@ -24,7 +24,9 @@ public class ModifiedBarrier {
     public void await() throws InterruptedException {
         lock.lock();
         try {
-            if (broken) return; 
+            if (broken) {
+            	return; 
+            }
             
             count++;
             if (count == parties) {

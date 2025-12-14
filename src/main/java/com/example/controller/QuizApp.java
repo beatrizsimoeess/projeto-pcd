@@ -1,6 +1,6 @@
 package com.example.controller;
 
-import com.example.model.Pergunta; // Assumindo que Pergunta é acessível
+import com.example.model.Pergunta; 
 import com.example.view.QuizView;
 
 import javax.swing.*;
@@ -50,7 +50,9 @@ public class QuizApp implements QuizControllerListener {
 
     @Override
     public void onAnswerSubmitted(int answerIndex) {
-        if (!isQuestionActive || hasResponded) return;
+        if (!isQuestionActive || hasResponded) {
+        	return;
+        }
         
         hasResponded = true;
         isQuestionActive = false; 
@@ -181,11 +183,19 @@ public class QuizApp implements QuizControllerListener {
     }
 
     private void closeConnection() {
-        if (timerThread != null) timerThread.interrupt();
+        if (timerThread != null) {
+        	timerThread.interrupt();
+        }
         try {
-            if (out != null) out.close();
-            if (in != null) in.close();
-            if (clientSocket != null) clientSocket.close();
+            if (out != null) {
+            	out.close();
+            }
+            if (in != null) {
+            	in.close();
+            }
+            if (clientSocket != null) {
+            	clientSocket.close();
+            }
         } catch (IOException ignored) {}
     }
     

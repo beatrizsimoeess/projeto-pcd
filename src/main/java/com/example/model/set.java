@@ -1,9 +1,9 @@
 package com.example.model;
 
+public interface set<E> extends Iterable<E> {
 
-public interface set<E> {
-    
     boolean add(E e);
+    boolean remove(E e);
     boolean contains(Object o);
     void clear();
     int size();

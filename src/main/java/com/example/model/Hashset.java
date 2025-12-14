@@ -1,10 +1,11 @@
 package com.example.model;
 
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Set;
 
 public class Hashset<E> implements set<E> {
-    
+
     private final Set<E> internalSet;
 
     public Hashset() {
@@ -14,6 +15,11 @@ public class Hashset<E> implements set<E> {
     @Override
     public synchronized boolean add(E e) {
         return internalSet.add(e);
+    }
+
+    @Override
+    public synchronized boolean remove(E e) {
+        return internalSet.remove(e);
     }
 
     @Override
@@ -29,5 +35,10 @@ public class Hashset<E> implements set<E> {
     @Override
     public synchronized int size() {
         return internalSet.size();
+    }
+
+    @Override
+    public synchronized Iterator<E> iterator() {
+        return internalSet.iterator();
     }
 }

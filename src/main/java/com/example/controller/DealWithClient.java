@@ -34,7 +34,9 @@ public class DealWithClient extends Thread {
 			String request = in.readLine();
 			if (request != null && request.startsWith("REGISTER")) {
 				processarRegisto(request);
-                if (jogoAtual == null) return; 
+                if (jogoAtual == null) {
+                	return; 
+                }
 			} else {
 				out.println("ERROR Comando inesperado. Esperado: REGISTER ...");
 				return;
@@ -42,7 +44,9 @@ public class DealWithClient extends Thread {
 
 			while (true) {
 				String msg = in.readLine();
-				if (msg == null) break;
+				if (msg == null) {
+					break;
+				}
 
 				if (msg.startsWith("RESPONSE")) {
 					String[] partes = msg.split("\\s+");
@@ -74,7 +78,10 @@ public class DealWithClient extends Thread {
 		        servidor.removeJogador(this.username);
 		    }
 		    
-		    try { socket.close(); } catch (IOException e) {}
+		    try { 
+		    	socket.close(); 
+		    	} 
+		    catch (IOException e) { }
 	}
 	}
 
