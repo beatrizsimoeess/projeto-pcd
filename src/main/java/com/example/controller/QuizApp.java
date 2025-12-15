@@ -210,6 +210,10 @@ public class QuizApp implements QuizControllerListener {
             while (isQuestionActive && currentRemainingTime > 0) {
                 try { Thread.sleep(1000); } catch (InterruptedException e) { break; }
                 currentRemainingTime--;
+
+                SwingUtilities.invokeLater(() -> {
+                    view.updateTimer(currentRemainingTime);
+                });
             }
             if (isQuestionActive && !hasResponded) {
                 SwingUtilities.invokeLater(() -> {
